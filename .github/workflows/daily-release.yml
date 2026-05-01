@@ -1,0 +1,67 @@
+name: Daily release — publish variant orphan branches
+
+on:
+  schedule:
+    # 12:00 UTC = 8:00 EDT (during EDT). Runs every day.
+    - cron: "0 12 * * *"
+  workflow_dispatch:
+    # Manual trigger for verification / re-runs.
+    inputs:
+      version:
+        description: "Override package version (default: today's UTC date YYYY.MM.DD)"
+        required: false
+        type: string
+
+permissions:
+  contents: write   # required for force-pushing orphan branches and pushing tags
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # need full history for tag operations
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Compute version
+        id: version
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            echo "value=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=$(date -u +%Y.%m.%d)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build all four variants
+        run: |
+          python scripts/build_variants.py --version "${{ steps.version.outputs.value }}"
+
+      - name: Force-push each variant to its orphan branch + tag
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          REMOTE_URL="https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+
+          for variant in nr ao twelve sixteen; do
+            branch="game_index_${variant}"
+            tag="${variant}-${VERSION}"
+            cd "dist/${variant}"
+            git init -q -b "${branch}"
+            git add .
+            git commit -q -m "build ${variant} ${VERSION}"
+            git tag "${tag}"
+            # Single command pushes the branch (force) and the tag.
+            git push --force "${REMOTE_URL}" "HEAD:refs/heads/${branch}" "refs/tags/${tag}"
+            cd -
+          done
