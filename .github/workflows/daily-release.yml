@@ -1,9 +1,16 @@
 name: Daily release — publish variant orphan branches
 
+# NOTE: the daily cron is intentionally disabled until change-detection is in
+# place — without it, every cron run creates four redundant tags whether or
+# not any worlds/*.json changed. Re-enable by uncommenting the schedule block
+# below once the build skips publishing when the assembled output is
+# byte-identical to the previous orphan-branch tip.
+#
+# on:
+#   schedule:
+#     - cron: "0 12 * * *"   # 12:00 UTC = 8:00 EDT
+#   workflow_dispatch: ...
 on:
-  schedule:
-    # 12:00 UTC = 8:00 EDT (during EDT). Runs every day.
-    - cron: "0 12 * * *"
   workflow_dispatch:
     # Manual trigger for verification / re-runs.
     inputs:
