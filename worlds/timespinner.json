@@ -1,0 +1,10 @@
+{
+    "game": "Timespinner",
+    "authors": [
+        "Jarno"
+    ],
+    "igdb_id": 28952,
+    "minimum_ap_version": "0.6.3",
+    "world_version": "1.38.0",
+    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/timespinner"
+}

@@ -1,0 +1,10 @@
+{
+    "game": "Cat Quest",
+    "minimum_ap_version": "0.6.4",
+    "world_version": "0.3.0",
+    "authors": [
+        "Nikkilite"
+    ],
+    "igdb_id": 36597,
+    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/cat_quest"
+}

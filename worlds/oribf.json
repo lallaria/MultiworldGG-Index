@@ -1,0 +1,11 @@
+{
+    "compatible_version": 7,
+    "version": 7,
+    "game": "Ori and the Blind Forest",
+    "authors": [
+        "Gray"
+    ],
+    "igdb_id": 7344,
+    "world_version": "0.0.2",
+    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/oribf"
+}

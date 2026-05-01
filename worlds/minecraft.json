@@ -1,0 +1,13 @@
+{
+    "compatible_version": 7,
+    "version": 7,
+    "game": "Minecraft",
+    "world_version": "0.1.7",
+    "minimum_ap_version": "0.5.0",
+    "authors": [
+        "KonoTyran",
+        "JacobMIX"
+    ],
+    "igdb_id": 121,
+    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/minecraft"
+}

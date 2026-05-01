@@ -1,0 +1,13 @@
+{
+    "game": "Diddy Kong Racing",
+    "authors": [
+        "zakwiz",
+        "jjjj12212"
+    ],
+    "igdb_id": 2723,
+    "minimum_ap_version": "0.6.3",
+    "world_version": "1.1.4",
+    "compatible_version": 7,
+    "version": 7,
+    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/diddy_kong_racing"
+}

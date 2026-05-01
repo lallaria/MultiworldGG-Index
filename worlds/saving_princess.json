@@ -1,0 +1,10 @@
+{
+    "game": "Saving Princess",
+    "authors": [
+        "LeonarthCG"
+    ],
+    "minimum_ap_version": "0.6.6",
+    "world_version": "1.0.0",
+    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/saving_princess",
+    "igdb_id": 358859
+}

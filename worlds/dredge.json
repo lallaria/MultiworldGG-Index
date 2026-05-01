@@ -1,0 +1,12 @@
+{
+    "game": "DREDGE",
+    "minimum_ap_version": "0.6.4",
+    "world_version": "0.5.0",
+    "authors": [
+        "Alextric"
+    ],
+    "igdb_id": 164867,
+    "compatible_version": 7,
+    "version": 7,
+    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/dredge"
+}

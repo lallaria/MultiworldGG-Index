@@ -1,0 +1,12 @@
+{
+    "game": "Muse Dash",
+    "authors": [
+        "DeamonHunter"
+    ],
+    "igdb_id": 86316,
+    "world_version": "1.5.32",
+    "minimum_ap_version": "0.6.3",
+    "compatible_version": 7,
+    "version": 7,
+    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/musedash"
+}

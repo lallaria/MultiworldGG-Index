@@ -1,0 +1,9 @@
+{
+    "game": "The Legend of Zelda",
+    "world_version": "1.0.0",
+    "authors": [
+        "Rosalie"
+    ],
+    "igdb_id": 1022,
+    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/tloz"
+}

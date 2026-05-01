@@ -1,0 +1,10 @@
+{
+    "game": "Xenoblade X",
+    "authors": [
+        "Maragon"
+    ],
+    "igdb_id": 2366,
+    "minimum_ap_version": "0.6.4",
+    "world_version": "0.0.1",
+    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/xenobladex"
+}
