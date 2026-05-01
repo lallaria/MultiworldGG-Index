@@ -1,0 +1,39 @@
+name: Schema / infra change request
+description: Propose a change to the manifest schema, Greg's checks, the variant build, or the index workflows.
+title: "[infra] <area>: <short description>"
+labels: ["infra"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - schema/world_manifest.schema.json
+        - scripts/greg_review.py (Greg's checks)
+        - scripts/igdb_enrich.py
+        - scripts/build_variants.py
+        - scripts/manifest.py
+        - .github/workflows/
+        - other
+    validations:
+      required: true
+  - type: textarea
+    id: motivation
+    attributes:
+      label: What's the motivation?
+      description: What use case isn't supported today, or what's incorrect?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: Concrete description of the change and any backward-compat concerns.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: false

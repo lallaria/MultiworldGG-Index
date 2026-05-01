@@ -1,0 +1,132 @@
+name: IGDB enrichment on merge
+
+# Runs after a PR merges to main. For each `worlds/<slug>.json` that the merge
+# commit added or modified, hits IGDB for current metadata and updates the
+# slug's row in `output/igdb_enrichment.json`. Commits the diff back to main
+# with `[skip ci]` so the daily-release / Greg workflows don't re-trigger.
+#
+# Manual run: workflow_dispatch with optional --slug input.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "worlds/**.json"
+  workflow_dispatch:
+    inputs:
+      slug:
+        description: "Single slug to enrich (e.g. 'oot'). Leave blank to enrich every changed slug, or set --all below."
+        required: false
+        type: string
+      all:
+        description: "Enrich every slug (slow; hits IGDB rate limits)."
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  # Serialise enrich runs against main — prevents two pushes racing on the
+  # same igdb_enrichment.json commit.
+  group: igdb-enrich-main
+  cancel-in-progress: false
+
+jobs:
+  enrich:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2   # need parent commit to diff against
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Detect target slugs
+        id: detect
+        env:
+          DISPATCH_SLUG: ${{ inputs.slug }}
+          DISPATCH_ALL: ${{ inputs.all }}
+        run: |
+          set -euo pipefail
+          mode=""
+          slugs=""
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ "${DISPATCH_ALL}" = "true" ]; then
+              mode="all"
+            elif [ -n "${DISPATCH_SLUG:-}" ]; then
+              mode="explicit"
+              slugs="${DISPATCH_SLUG}"
+            else
+              mode="none"
+            fi
+          else
+            # push event: diff the commit's worlds/*.json changes
+            mode="diff"
+            slugs=$(git diff-tree --no-commit-id --name-only -r "${{ github.sha }}" \
+                      | grep -E '^worlds/[^/]+\.json$' \
+                      | sed -E 's|^worlds/(.+)\.json$|\1|' || true)
+          fi
+
+          echo "mode=${mode}" >> "$GITHUB_OUTPUT"
+          {
+            echo "slugs<<EOF"
+            echo "${slugs}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          echo "Detected mode: ${mode}"
+          echo "Slugs:"
+          echo "${slugs}" | sed 's/^/  /'
+
+      - name: Run IGDB enrichment
+        id: enrich
+        if: steps.detect.outputs.mode != 'none' && (steps.detect.outputs.mode == 'all' || steps.detect.outputs.slugs != '')
+        env:
+          IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
+          IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "${IGDB_CLIENT_ID:-}" ] || [ -z "${IGDB_CLIENT_SECRET:-}" ]; then
+            echo "::error::IGDB_CLIENT_ID / IGDB_CLIENT_SECRET secrets are not set."
+            exit 1
+          fi
+
+          args=()
+          if [ "${{ steps.detect.outputs.mode }}" = "all" ]; then
+            args+=("--all")
+          else
+            while IFS= read -r slug; do
+              [ -n "$slug" ] && args+=("--slug" "$slug")
+            done <<< "${{ steps.detect.outputs.slugs }}"
+          fi
+
+          python scripts/igdb_enrich.py "${args[@]}" \
+            --enrichment-path output/igdb_enrichment.json \
+            --worlds-dir worlds
+
+      - name: Commit enrichment back to main
+        if: steps.detect.outputs.mode != 'none'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet output/igdb_enrichment.json; then
+            echo "no changes to igdb_enrichment.json"
+            exit 0
+          fi
+
+          git add output/igdb_enrichment.json
+          git commit -m "chore(igdb): refresh enrichment [skip ci]" \
+                     -m "Triggered by ${{ github.event_name }} on ${{ github.sha }}."
+          git push origin HEAD:main

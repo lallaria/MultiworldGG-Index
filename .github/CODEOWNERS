@@ -1,0 +1,26 @@
+# Code owners for the MultiworldGG-Index repo.
+#
+# GitHub assigns these owners as default reviewers when matched files change.
+# Greg's automated checks run separately via .github/workflows/greg-pr-review.yml
+# and request additional human reviewers (vars.GREG_HUMAN_REVIEWERS) on green.
+#
+# Lines are evaluated bottom-up: the LAST matching pattern wins.
+
+# Catch-all: repo owner reviews anything not matched below.
+*                                       @lallaria
+
+# Per-world manifests (the high-volume PR target — Greg validates first).
+worlds/*.json                           @lallaria
+
+# Schema is load-bearing for every PR; require explicit owner review.
+schema/                                 @lallaria
+
+# Index build/release tooling.
+scripts/                                @lallaria
+
+# CI definitions and repo meta.
+.github/                                @lallaria
+
+# IGDB enrichment data is updated by the igdb-enrich.yml bot on every merge;
+# owner reviews any out-of-band human edits.
+output/igdb_enrichment.json             @lallaria
