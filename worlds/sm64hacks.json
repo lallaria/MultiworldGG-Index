@@ -1,0 +1,12 @@
+{
+    "minimum_ap_version": "0.6.3",
+    "world_version": "0.4.4",
+    "authors": [
+        "DNVIC"
+    ],
+    "igdb_id": 1074,
+    "game": "SM64 Romhack",
+    "compatible_version": 7,
+    "version": 7,
+    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/sm64hacks"
+}

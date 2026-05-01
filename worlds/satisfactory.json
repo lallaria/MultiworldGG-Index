@@ -1,0 +1,11 @@
+{
+    "game": "Satisfactory",
+    "authors": [
+        "Jarno",
+        "Robb"
+    ],
+    "igdb_id": 90558,
+    "minimum_ap_version": "0.6.3",
+    "world_version": "2.3.1",
+    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/satisfactory"
+}

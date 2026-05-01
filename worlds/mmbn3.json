@@ -1,0 +1,10 @@
+{
+    "game": "MegaMan Battle Network 3",
+    "authors": [
+        "digiholic"
+    ],
+    "igdb_id": 1758,
+    "minimum_ap_version": "0.6.4",
+    "world_version": "0.0.1",
+    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/mmbn3"
+}

@@ -1,0 +1,10 @@
+{
+    "game": "Digimon World",
+    "authors": [
+        "ArsonAssassin"
+    ],
+    "igdb_id": 3878,
+    "minimum_ap_version": "0.6.4",
+    "world_version": "0.0.1",
+    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/dw1"
+}

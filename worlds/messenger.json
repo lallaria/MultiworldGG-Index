@@ -1,0 +1,12 @@
+{
+    "game": "The Messenger",
+    "authors": [
+        "alwaysintreble"
+    ],
+    "igdb_id": 71628,
+    "world_version": "0.0.2",
+    "minimum_ap_version": "0.6.4",
+    "compatible_version": 7,
+    "version": 7,
+    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/messenger"
+}

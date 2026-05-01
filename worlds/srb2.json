@@ -1,0 +1,9 @@
+{
+    "game": "Sonic Robo Blast 2",
+    "authors": [
+        "GraymonDgt"
+    ],
+    "minimum_ap_version": "0.6.3",
+    "world_version": "1.6.0",
+    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/srb2"
+}

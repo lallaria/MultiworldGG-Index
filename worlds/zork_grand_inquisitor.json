@@ -1,0 +1,15 @@
+{
+    "authors": [
+        "SerpentAI"
+    ],
+    "flags": [
+        "tracker_included"
+    ],
+    "game": "Zork Grand Inquisitor",
+    "idgb_id": 1955,
+    "minimum_ap_version": "0.6.7",
+    "version": 7,
+    "world_version": "2.1.1",
+    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/zork_grand_inquisitor",
+    "igdb_id": 1955
+}

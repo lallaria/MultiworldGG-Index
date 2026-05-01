@@ -1,0 +1,10 @@
+{
+    "game": "Zillion",
+    "authors": [
+        "beauxq"
+    ],
+    "igdb_id": 18141,
+    "minimum_ap_version": "0.6.4",
+    "world_version": "0.0.2",
+    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/zillion"
+}

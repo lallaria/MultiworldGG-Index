@@ -1,0 +1,10 @@
+{
+    "game": "Final Fantasy V Career Day",
+    "version": 7,
+    "compatible_version": 7,
+    "authors": [
+        "Junglechief",
+        "cleartonic"
+    ],
+    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/ffvcd"
+}

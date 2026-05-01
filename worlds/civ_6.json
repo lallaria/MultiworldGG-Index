@@ -1,0 +1,10 @@
+{
+    "game": "Civilization VI",
+    "authors": [
+        "hesto2"
+    ],
+    "igdb_id": 293,
+    "minimum_ap_version": "0.6.4",
+    "world_version": "0.0.1",
+    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/civ_6"
+}

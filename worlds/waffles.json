@@ -1,0 +1,13 @@
+{
+    "game": "SMW: Spicy Mycena Waffles",
+    "world_version": "1.3.3",
+    "minimum_ap_version": "0.6.7",
+    "authors": [
+        "lx5",
+        "PoryGone"
+    ],
+    "igdb_id": 1070,
+    "compatible_version": 7,
+    "version": 7,
+    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/waffles"
+}
