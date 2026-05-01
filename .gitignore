@@ -8,3 +8,6 @@ venv/
 .vscode/
 .claude/
 .claude
+
+# Variant-build outputs (rebuilt fresh by daily-release.yml)
+dist/
