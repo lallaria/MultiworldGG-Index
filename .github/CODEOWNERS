@@ -1,5 +1,9 @@
 # Code owners for the MultiworldGG-Index repo.
 #
+# This is a work in progress and as json files are updated with original
+# repsitories owners for specific worlds files will be changed (lord help me I
+# am NOT reviewing everything)
+#
 # GitHub assigns these owners as default reviewers when matched files change.
 # Greg's automated checks run separately via .github/workflows/greg-pr-review.yml
 # and request additional human reviewers (vars.GREG_HUMAN_REVIEWERS) on green.
