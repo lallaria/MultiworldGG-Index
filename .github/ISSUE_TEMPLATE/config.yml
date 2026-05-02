@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Per-world bug reports
+    url: https://github.com/MultiworldGG/MultiworldGG/issues
+    about: This repo only holds the index. Bugs in a specific world (gameplay, generation, items) belong on that world's repo or the main MultiworldGG repo.
