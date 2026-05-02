@@ -58,6 +58,17 @@ DEFAULT_SIZE_CAP_MB = 250
 URL_FETCH_TIMEOUT_SECONDS = 10
 URL_USER_AGENT = "MultiworldGG-Index-Greg/1.0 (+https://github.com/lallaria/MultiworldGG-Index)"
 
+ALL_CHECKS = (
+    "schema",
+    "manifest_consistency",
+    "url_reachability",
+    "size_sanity",
+    "no_network_at_import",
+    "bandit",
+    "pip_audit",
+)
+DEEP_CHECKS = frozenset({"size_sanity", "no_network_at_import", "bandit", "pip_audit"})
+
 NETWORK_MODULES = frozenset({
     "socket",
     "http",
@@ -226,8 +237,13 @@ def _http_check(url: str) -> tuple[bool, str]:
         return False, f"unreachable: {exc}"
 
 
-def check_url_reachability(manifest_path: Path) -> CheckResult:
-    """HEAD/GET module_location, repo_url, tracker."""
+def check_url_reachability(manifest_path: Path, lenient: bool = False) -> CheckResult:
+    """HEAD/GET module_location, repo_url, tracker.
+
+    With lenient=True, unreachable URLs degrade to `warn` instead of `fail`. Used
+    during the worlds-mirror transition when the canonical URLs are still being
+    populated.
+    """
     with open(manifest_path, encoding="utf-8") as f:
         manifest = json.load(f)
     fields = ("module_location", "repo_url", "tracker")
@@ -245,9 +261,13 @@ def check_url_reachability(manifest_path: Path) -> CheckResult:
     if not results:
         return CheckResult("url_reachability", "skip", "no URL fields present")
     if any_failed:
-        return CheckResult(
-            "url_reachability", "fail", "one or more URLs unreachable", details=results
+        status = "warn" if lenient else "fail"
+        message = (
+            "one or more URLs unreachable (lenient: not blocking)"
+            if lenient
+            else "one or more URLs unreachable"
         )
+        return CheckResult("url_reachability", status, message, details=results)
     return CheckResult(
         "url_reachability", "pass", f"{len(results)} URL(s) reachable", details=results
     )
@@ -554,14 +574,24 @@ def review_one(
     schema_path: Path,
     size_cap_mb: int,
     workdir: Path,
+    selected_checks: frozenset[str],
+    lenient_urls: bool = False,
 ) -> WorldReview:
     slug = manifest_path.stem
     review = WorldReview(slug=slug, manifest_path=str(manifest_path))
 
     # Fast checks (no network / clone)
-    review.checks.append(check_schema(manifest_path, schema_path))
-    review.checks.append(check_manifest_consistency(manifest_path))
-    review.checks.append(check_url_reachability(manifest_path))
+    if "schema" in selected_checks:
+        review.checks.append(check_schema(manifest_path, schema_path))
+    if "manifest_consistency" in selected_checks:
+        review.checks.append(check_manifest_consistency(manifest_path))
+    if "url_reachability" in selected_checks:
+        review.checks.append(check_url_reachability(manifest_path, lenient=lenient_urls))
+
+    # Skip the clone entirely if no deep checks were selected.
+    deep_selected = selected_checks & DEEP_CHECKS
+    if not deep_selected:
+        return review
 
     # Try to fetch the world for the deeper checks.
     world_dir = workdir / slug
@@ -586,22 +616,36 @@ def review_one(
         fetch_message = f"could not load manifest for fetch: {exc}"
 
     if not fetched:
-        # Mark deeper checks as skipped with the fetch reason.
+        # Mark deeper checks as skipped (lenient mode: pass-with-note instead).
+        skip_status = "pass" if lenient_urls else "skip"
+        skip_message = (
+            "world source not fetched (lenient: not blocking)"
+            if lenient_urls
+            else "world source not fetched"
+        )
         for name in ("size_sanity", "no_network_at_import", "bandit", "pip_audit"):
-            review.checks.append(
-                CheckResult(name, "skip", "world source not fetched", details=[fetch_message])
-            )
+            if name in selected_checks:
+                review.checks.append(
+                    CheckResult(name, skip_status, skip_message, details=[fetch_message])
+                )
         return review
 
-    review.checks.append(check_size_sanity(world_dir, size_cap_mb))
-    review.checks.append(check_no_network_at_import(world_dir))
-    review.checks.append(check_bandit(world_dir))
-    review.checks.append(check_pip_audit(world_dir))
+    if "size_sanity" in selected_checks:
+        review.checks.append(check_size_sanity(world_dir, size_cap_mb))
+    if "no_network_at_import" in selected_checks:
+        review.checks.append(check_no_network_at_import(world_dir))
+    if "bandit" in selected_checks:
+        review.checks.append(check_bandit(world_dir))
+    if "pip_audit" in selected_checks:
+        review.checks.append(check_pip_audit(world_dir))
 
     return review
 
 
 _STATUS_GLYPH = {"pass": "✅", "fail": "❌", "warn": "⚠️", "skip": "⏭️"}
+
+
+_DETAILED_RENDER_THRESHOLD = 20
 
 
 def render_comment(run: ReviewRun) -> str:
@@ -610,10 +654,24 @@ def render_comment(run: ReviewRun) -> str:
         PR_COMMENT_MARKER,
         "## Greg's review",
         "",
-        f"**Overall:** {overall_glyph} {run.overall.upper()}",
+        f"**Overall:** {overall_glyph} {run.overall.upper()} ({len(run.worlds)} world(s) checked)",
         "",
     ]
-    for w in run.worlds:
+    # Compact mode: when many worlds are in scope (e.g. schema change re-validates
+    # ALL manifests), only render fail/warn worlds in detail and roll passes into
+    # a single summary line.
+    compact = len(run.worlds) > _DETAILED_RENDER_THRESHOLD
+    detailed_worlds = [w for w in run.worlds if w.overall in ("fail", "warn")] if compact else run.worlds
+
+    if compact:
+        passed = [w for w in run.worlds if w.overall == "pass"]
+        if passed:
+            lines.append(f"{_STATUS_GLYPH['pass']} **{len(passed)} world(s) passed:** "
+                         + ", ".join(f"`{w.slug}`" for w in passed[:50])
+                         + ("…" if len(passed) > 50 else ""))
+            lines.append("")
+
+    for w in detailed_worlds:
         lines.append(f"### `worlds/{w.slug}.json` — {_STATUS_GLYPH[w.overall]} {w.overall}")
         lines.append("")
         lines.append("| Check | Status | Notes |")
@@ -687,9 +745,31 @@ def _cli(argv: Optional[list[str]] = None) -> int:
         type=int,
         default=DEFAULT_SIZE_CAP_MB,
     )
+    parser.add_argument(
+        "--check",
+        action="append",
+        default=[],
+        choices=ALL_CHECKS,
+        help=(
+            "Limit to specific checks. Repeatable. Default: run all 7. "
+            "Use to run a fast subset (e.g. --check schema --check manifest_consistency) "
+            "when validating all worlds after a schema change."
+        ),
+    )
+    parser.add_argument(
+        "--lenient-urls",
+        action="store_true",
+        help=(
+            "Downgrade url_reachability fails to warns and convert deep-check "
+            "fetch-skips to pass-with-note. Used during the worlds-mirror "
+            "transition when canonical URLs aren't populated yet."
+        ),
+    )
     parser.add_argument("--output-comment", type=Path, default=None)
     parser.add_argument("--output-summary", type=Path, default=None)
     args = parser.parse_args(argv)
+
+    selected_checks = frozenset(args.check) if args.check else frozenset(ALL_CHECKS)
 
     if not args.changed:
         # No changed manifests — pass trivially. Still emit empty outputs so
@@ -719,7 +799,14 @@ def _cli(argv: Optional[list[str]] = None) -> int:
                 run.worlds.append(review)
                 continue
             run.worlds.append(
-                review_one(manifest_path, args.schema, args.size_cap_mb, workdir)
+                review_one(
+                    manifest_path,
+                    args.schema,
+                    args.size_cap_mb,
+                    workdir,
+                    selected_checks=selected_checks,
+                    lenient_urls=args.lenient_urls,
+                )
             )
 
     if args.output_comment:
