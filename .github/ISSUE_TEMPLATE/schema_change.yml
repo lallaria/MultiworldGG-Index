@@ -1,5 +1,5 @@
 name: Schema / infra change request
-description: Propose a change to the manifest schema, Greg's checks, the variant build, or the index workflows.
+description: Propose a change to the manifest schema, Karen's checks, the variant build, or the index workflows.
 title: "[infra] <area>: <short description>"
 labels: ["infra"]
 body:
@@ -9,7 +9,7 @@ body:
       label: Area
       options:
         - schema/world_manifest.schema.json
-        - scripts/greg_review.py (Greg's checks)
+        - scripts/karen_review.py (Karen's checks)
         - scripts/igdb_enrich.py
         - scripts/build_variants.py
         - scripts/manifest.py

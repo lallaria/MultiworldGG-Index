@@ -3,7 +3,7 @@ name: IGDB enrichment on merge
 # Runs after a PR merges to main. For each `worlds/<slug>.json` that the merge
 # commit added or modified, hits IGDB for current metadata and updates the
 # slug's row in `output/igdb_enrichment.json`. Commits the diff back to main
-# with `[skip ci]` so the daily-release / Greg workflows don't re-trigger.
+# with `[skip ci]` so the daily-release / Karen workflows don't re-trigger.
 #
 # Manual run: workflow_dispatch with optional --slug input.
 
@@ -37,6 +37,10 @@ jobs:
   enrich:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # Pulls IGDB_CLIENT_ID / IGDB_CLIENT_SECRET from the `igdb_gather`
+    # environment, which is restricted to the `main` branch. PR runs and
+    # feature-branch dispatches cannot reach the secrets.
+    environment: igdb_gather
 
     steps:
       - name: Checkout main
