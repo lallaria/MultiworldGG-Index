@@ -13,11 +13,6 @@ name: Greg's PR review
 #     ALL manifests, since schema semantics changed for everyone. Deep checks
 #     (clone + bandit + pip_audit + size + AST) are skipped on this path —
 #     running them across all 229 manifests would take ~30 min.
-#
-# GREG_LENIENT_URLS env var (set below) downgrades url_reachability fails to
-# warns and converts deep-check fetch-skips to pass-with-note. Used during the
-# worlds-mirror branch transition while canonical URLs aren't populated yet.
-# REMOVE the env var line below once worlds-mirror is fully populated.
 
 on:
   pull_request:
@@ -110,7 +105,6 @@ jobs:
             "${args[@]}" \
             --schema schema/world_manifest.schema.json \
             --size-cap-mb "${size_cap}" \
-            --lenient-urls \
             --output-comment greg-comment.md \
             --output-summary greg-summary.json
           greg_exit=$?
