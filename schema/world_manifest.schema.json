@@ -1,0 +1,116 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://github.com/lallaria/MultiworldGG-Index/blob/main/schema/world_manifest.schema.json",
+    "title": "MultiworldGG world manifest",
+    "description": "Validates worlds/<slug>.json on Index-repo PRs. Greg fails the PR if a manifest does not match this schema. The slug is the filename stem (e.g. 'oot' for 'worlds/oot.json'); it is not stored inside the document.",
+    "type": "object",
+    "required": [
+        "game",
+        "module_location"
+    ],
+    "additionalProperties": false,
+    "patternProperties": {
+        "^_comment(_|$)": {
+            "description": "Inline-comment fields, ignored by all consumers. Convention: '_comment_<field>' or '_comment'."
+        }
+    },
+    "properties": {
+        "game": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Display name shown to players. The lookup key game_name -> slug is built from this field."
+        },
+        "module_location": {
+            "type": "string",
+            "format": "uri",
+            "pattern": "^(https?://|git\\+|ssh://|file://)",
+            "description": "Source location for the world. Currently a GitHub tree URL (https://github.com/<org>/<repo>/tree/<ref>/<path>); pip-installable specs (git+ssh://, git+https://) are also valid."
+        },
+        "world_version": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^v?[0-9]+(\\.[0-9]+)*([._-][A-Za-z0-9]+)*$",
+            "description": "Semver-shape version of the world implementation. Used for the .apworld vs index precedence rule (higher wins; tiebreaker: installed wheel)."
+        },
+        "world_version_full": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Free-form descriptive version (e.g. 'alpha02i.1', '20260210-1'). Cosmetic; not parsed."
+        },
+        "minimum_ap_version": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^v?[0-9]+(\\.[0-9]+)*([._-][A-Za-z0-9]+)*$",
+            "description": "Minimum AP/MultiworldGG core version this world supports. Used to gate compatibility on install."
+        },
+        "authors": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+                "type": "string",
+                "minLength": 1
+            },
+            "description": "World authors, displayed in launcher / tracker UIs."
+        },
+        "contributors": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+                "type": "string",
+                "minLength": 1
+            },
+            "description": "Secondary credit list. Distinct from 'authors'; not surfaced everywhere."
+        },
+        "igdb_id": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "IGDB game id. 0 means 'no IGDB entry' (e.g. for original worlds with no commercial counterpart). The igdb-enrich workflow keys off this on PR merge."
+        },
+        "compatible_version": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Lowest APContainer (.apworld) schema version this world remains binary-compatible with. Canonical universal value is 7."
+        },
+        "version": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "APContainer (.apworld) schema version this world was packaged with."
+        },
+        "build_version": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Build counter for the bundled artifact, when distinct from APContainer 'version'. Rarely set."
+        },
+        "repo_url": {
+            "type": "string",
+            "format": "uri",
+            "pattern": "^(https?://|git\\+|ssh://)",
+            "description": "Upstream repository URL when distinct from module_location (e.g. for worlds whose canonical home is outside MultiworldGG/MultiworldGG)."
+        },
+        "tracker": {
+            "type": "string",
+            "format": "uri",
+            "pattern": "^https?://",
+            "description": "URL to a community tracker (e.g. PopTracker pack release page)."
+        },
+        "flags": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+                "type": "string",
+                "enum": [
+                    "tracker_included"
+                ]
+            },
+            "description": "Capability flags. Closed enum — adding a new flag requires updating this schema."
+        },
+        "changelog": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "description": "Markdown lines, oldest-last. Cosmetic; not parsed."
+        }
+    }
+}

@@ -1,0 +1,235 @@
+name: Greg's PR review
+
+# Greg is the default reviewer (via CODEOWNERS) for worlds/*.json updates.
+# This workflow runs Greg's 7 security checks on every PR change against `main`,
+# posts a sticky PR comment summarising the results, and requests human review
+# only when all checks are green.
+#
+# Triggers on changes to worlds/** or schema/**.
+#
+# Two execution modes:
+#   - manifest-only: full 7-check suite against just the changed manifests.
+#   - schema-changed: fast subset (schema + manifest_consistency only) against
+#     ALL manifests, since schema semantics changed for everyone. Deep checks
+#     (clone + bandit + pip_audit + size + AST) are skipped on this path —
+#     running them across all 229 manifests would take ~30 min.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main]
+    paths:
+      - "worlds/**"
+      - "schema/**"
+      - "scripts/greg_review.py"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: greg-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Greg's deps
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install jsonschema bandit pip-audit
+
+      - name: Detect changed manifests
+        id: detect
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          # All files changed in this PR
+          git diff --name-only "${BASE_SHA}...${HEAD_SHA}" > changed-files.txt
+
+          grep -E '^worlds/[^/]+\.json$' changed-files.txt > greg-targets.txt || true
+          schema_changed=$(grep -E '^schema/' changed-files.txt || true)
+
+          target_count=$(wc -l < greg-targets.txt | tr -d '[:space:]')
+          echo "target_count=${target_count}" >> "$GITHUB_OUTPUT"
+          echo "Changed worlds:"
+          cat greg-targets.txt || true
+
+          if [ -n "${schema_changed}" ]; then
+            echo "schema_changed=true" >> "$GITHUB_OUTPUT"
+            echo "Schema changed -> will run fast checks against ALL manifests"
+          else
+            echo "schema_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run Greg (full suite on changed manifests)
+        id: greg
+        if: steps.detect.outputs.target_count != '0'
+        run: |
+          set -euo pipefail
+          # Build --changed args from greg-targets.txt
+          args=()
+          while IFS= read -r path; do
+            [ -n "$path" ] && args+=("--changed" "$path")
+          done < greg-targets.txt
+
+          # Allow per-PR size cap override via 'greg/size-cap-mb:NNN' label.
+          size_cap=250
+          while IFS= read -r label; do
+            case "$label" in
+              greg/size-cap-mb:*)
+                size_cap="${label#greg/size-cap-mb:}"
+                ;;
+            esac
+          done < <(jq -r '.pull_request.labels[].name' < "$GITHUB_EVENT_PATH")
+          echo "Using size cap: ${size_cap}MB"
+
+          set +e
+          python scripts/greg_review.py \
+            "${args[@]}" \
+            --schema schema/world_manifest.schema.json \
+            --size-cap-mb "${size_cap}" \
+            --output-comment greg-comment.md \
+            --output-summary greg-summary.json
+          greg_exit=$?
+          set -e
+
+          overall=$(jq -r .overall greg-summary.json)
+          echo "overall=${overall}" >> "$GITHUB_OUTPUT"
+          echo "exit=${greg_exit}" >> "$GITHUB_OUTPUT"
+
+      - name: Run Greg (schema validation across ALL manifests)
+        id: greg_schema_only
+        if: steps.detect.outputs.schema_changed == 'true' && steps.detect.outputs.target_count == '0'
+        run: |
+          set -euo pipefail
+          # Schema changed but no specific manifests touched: validate all 229
+          # against the new schema using only the fast checks (no clone, no
+          # bandit, no pip-audit). Typical runtime: under 10 seconds.
+          args=()
+          for path in worlds/*.json; do
+            args+=("--changed" "$path")
+          done
+
+          set +e
+          python scripts/greg_review.py \
+            "${args[@]}" \
+            --schema schema/world_manifest.schema.json \
+            --check schema --check manifest_consistency \
+            --output-comment greg-comment.md \
+            --output-summary greg-summary.json
+          greg_exit=$?
+          set -e
+
+          overall=$(jq -r .overall greg-summary.json)
+          echo "overall=${overall}" >> "$GITHUB_OUTPUT"
+          echo "exit=${greg_exit}" >> "$GITHUB_OUTPUT"
+
+      - name: Skip-trivial comment
+        if: steps.detect.outputs.target_count == '0' && steps.detect.outputs.schema_changed != 'true'
+        run: |
+          cat > greg-comment.md <<'EOF'
+          <!-- greg-pr-review -->
+          ## Greg's review
+
+          No `worlds/*.json` files in scope for this PR.
+          EOF
+
+      - name: Upload Greg artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: greg-review
+          path: |
+            greg-comment.md
+            greg-summary.json
+          if-no-files-found: warn
+
+      - name: Post or update sticky PR comment
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [ ! -f greg-comment.md ]; then
+            echo "no comment to post"
+            exit 0
+          fi
+          existing=$(gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" \
+            --jq '.[] | select(.body | startswith("<!-- greg-pr-review -->")) | .id' \
+            | head -n 1 || true)
+          if [ -n "${existing}" ]; then
+            echo "updating comment ${existing}"
+            gh api -X PATCH "repos/${REPO}/issues/comments/${existing}" \
+              -f "body=@greg-comment.md" >/dev/null
+          else
+            echo "creating new comment"
+            gh pr comment "${PR_NUMBER}" --repo "${REPO}" --body-file greg-comment.md
+          fi
+
+      - name: Request human review on green
+        if: steps.greg.outputs.overall == 'pass' || steps.greg_schema_only.outputs.overall == 'pass'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          REVIEWERS: ${{ vars.GREG_HUMAN_REVIEWERS }}
+        run: |
+          set -euo pipefail
+          if [ -z "${REVIEWERS:-}" ]; then
+            echo "GREG_HUMAN_REVIEWERS variable is unset; skipping review request."
+            exit 0
+          fi
+          # vars.GREG_HUMAN_REVIEWERS is a comma-separated list, e.g.
+          # "user1,team:org/maintainers,user2"
+          users=()
+          teams=()
+          IFS=',' read -ra ENTRIES <<< "${REVIEWERS}"
+          for entry in "${ENTRIES[@]}"; do
+            entry="${entry//[[:space:]]/}"
+            [ -z "${entry}" ] && continue
+            case "${entry}" in
+              team:*)
+                teams+=("${entry#team:}")
+                ;;
+              *)
+                users+=("${entry}")
+                ;;
+            esac
+          done
+          args=()
+          if [ "${#users[@]}" -gt 0 ]; then
+            args+=("--add-reviewer" "$(IFS=,; echo "${users[*]}")")
+          fi
+          if [ "${#teams[@]}" -gt 0 ]; then
+            args+=("--add-reviewer" "$(IFS=,; echo "${teams[*]}")")
+          fi
+          gh pr edit "${PR_NUMBER}" --repo "${REPO}" "${args[@]}" || {
+            echo "review request failed (often: reviewer already requested or insufficient perms); not blocking."
+          }
+
+      - name: Fail the check on red
+        if: |
+          (steps.greg.outputs.exit != '' && steps.greg.outputs.exit != '0') ||
+          (steps.greg_schema_only.outputs.exit != '' && steps.greg_schema_only.outputs.exit != '0')
+        run: |
+          echo "Greg reported red checks; failing the workflow."
+          exit 1
