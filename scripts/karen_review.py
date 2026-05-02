@@ -1,8 +1,8 @@
-"""Greg's 7-check security review for `worlds/<slug>.json` PRs.
+"""Karen's 7-check security review for `worlds/<slug>.json` PRs.
 
-Greg is the default reviewer (via CODEOWNERS) for `worlds/*.json` updates in
+Karen is the default reviewer (via CODEOWNERS) for `worlds/*.json` updates in
 this Index repo. On every PR open/sync against `main`, the
-`greg-pr-review.yml` workflow invokes this script with the list of changed
+`karen-pr-review.yml` workflow invokes this script with the list of changed
 manifest paths. Each manifest is run through 7 checks:
 
     1. schema               — JSON-Schema validation against schema/world_manifest.schema.json
@@ -25,12 +25,12 @@ The script writes:
     - exits 0 on overall pass, 1 on overall fail (any red check)
 
 Usage:
-    python scripts/greg_review.py \\
+    python scripts/karen_review.py \\
         --changed worlds/oot.json --changed worlds/alttp.json \\
         --schema schema/world_manifest.schema.json \\
         --size-cap-mb 250 \\
-        --output-comment greg-comment.md \\
-        --output-summary greg-summary.json
+        --output-comment karen-comment.md \\
+        --output-summary karen-summary.json
 """
 
 from __future__ import annotations
@@ -51,12 +51,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable, Optional
 
-PR_COMMENT_MARKER = "<!-- greg-pr-review -->"
+PR_COMMENT_MARKER = "<!-- karen-pr-review -->"
 
 DEFAULT_SIZE_CAP_MB = 250
 
 URL_FETCH_TIMEOUT_SECONDS = 10
-URL_USER_AGENT = "MultiworldGG-Index-Greg/1.0 (+https://github.com/lallaria/MultiworldGG-Index)"
+URL_USER_AGENT = "MultiworldGG-Index-Karen/1.0 (+https://github.com/lallaria/MultiworldGG-Index)"
 
 ALL_CHECKS = (
     "schema",
@@ -87,7 +87,7 @@ NETWORK_MODULES = frozenset({
 })
 
 # Top-level call attribute paths that indicate network use. Conservative —
-# erring on the side of false positives, which Greg surfaces as warnings.
+# erring on the side of false positives, which Karen surfaces as warnings.
 NETWORK_CALL_PATTERNS = (
     re.compile(r"^urllib(\.[A-Za-z_]+)*\.(urlopen|urlretrieve|Request)$"),
     re.compile(r"^requests\.(get|post|put|delete|head|patch|request)$"),
@@ -390,7 +390,7 @@ def check_size_sanity(world_dir: Path, size_cap_mb: int) -> CheckResult:
             f"size exceeds cap: {cap_str}",
             details=[
                 "Override by re-running the workflow with a higher --size-cap-mb,",
-                "or set the 'greg/size-override' label on this PR.",
+                "or set the 'karen/size-override' label on this PR.",
             ],
         )
     return CheckResult("size_sanity", "pass", cap_str)
@@ -603,7 +603,7 @@ def review_one(
         url = manifest.get("module_location", "")
         params = _parse_module_location(url)
         if params is None:
-            fetch_message = f"module_location URL shape not supported by Greg yet: {url}"
+            fetch_message = f"module_location URL shape not supported by Karen yet: {url}"
         else:
             ok, msg = _sparse_clone(
                 params["clone_url"], params["ref"], params["subpath"], world_dir
@@ -652,7 +652,7 @@ def render_comment(run: ReviewRun) -> str:
     overall_glyph = _STATUS_GLYPH[run.overall]
     lines = [
         PR_COMMENT_MARKER,
-        "## Greg's review",
+        "## Karen's review",
         "",
         f"**Overall:** {overall_glyph} {run.overall.upper()} ({len(run.worlds)} world(s) checked)",
         "",
@@ -728,7 +728,7 @@ def render_summary(run: ReviewRun) -> dict:
 
 
 def _cli(argv: Optional[list[str]] = None) -> int:
-    parser = argparse.ArgumentParser(description="Greg's PR review for worlds/*.json updates.")
+    parser = argparse.ArgumentParser(description="Karen's PR review for worlds/*.json updates.")
     parser.add_argument(
         "--changed",
         action="append",
@@ -777,7 +777,7 @@ def _cli(argv: Optional[list[str]] = None) -> int:
         run = ReviewRun(worlds=[])
         if args.output_comment:
             args.output_comment.write_text(
-                f"{PR_COMMENT_MARKER}\n## Greg's review\n\nNo `worlds/*.json` files in this PR.\n",
+                f"{PR_COMMENT_MARKER}\n## Karen's review\n\nNo `worlds/*.json` files in this PR.\n",
                 encoding="utf-8",
             )
         if args.output_summary:
@@ -786,7 +786,7 @@ def _cli(argv: Optional[list[str]] = None) -> int:
             )
         return 0
 
-    with tempfile.TemporaryDirectory(prefix="greg-") as tmpdir:
+    with tempfile.TemporaryDirectory(prefix="karen-") as tmpdir:
         workdir = Path(tmpdir)
         run = ReviewRun()
         for raw in args.changed:
