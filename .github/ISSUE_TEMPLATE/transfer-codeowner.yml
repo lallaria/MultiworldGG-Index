@@ -1,0 +1,60 @@
+name: Transfer codeowner of a world
+description: Hand off CODEOWNERS responsibility for a `worlds/<slug>.json` entry to a different GitHub account.
+title: "[codeowner-transfer] <slug>: <current> → <new>"
+labels: ["codeowner-transfer"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template to request that the per-world author listed in `.github/CODEOWNERS`
+        for a specific world be changed to a different GitHub account.
+
+        This issue does **not** auto-edit CODEOWNERS — a maintainer reviews the request and
+        applies the change manually. Both the current and the proposed new codeowner should
+        confirm the transfer in the comments before the maintainer merges.
+  - type: input
+    id: slug
+    attributes:
+      label: Slug
+      description: Filename stem under `worlds/` (e.g. `clique` for `worlds/clique.json`). Lowercase letters, digits, and underscores only.
+      placeholder: "clique"
+    validations:
+      required: true
+  - type: input
+    id: current
+    attributes:
+      label: Current codeowner
+      description: GitHub handle currently listed for `worlds/<slug>.json` in `.github/CODEOWNERS`. Without the leading `@`.
+      placeholder: "alice"
+    validations:
+      required: true
+  - type: input
+    id: new
+    attributes:
+      label: Proposed new codeowner
+      description: GitHub handle to take over. Must be a real GitHub user (or a team in `org/team` form). Without the leading `@`.
+      placeholder: "bob"
+    validations:
+      required: true
+  - type: textarea
+    id: reason
+    attributes:
+      label: Reason for transfer
+      description: Optional context. e.g. original author no longer maintaining the world, fork ownership change, account migration.
+      placeholder: "Original author asked me to take over after their account was deleted."
+    validations:
+      required: false
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Maintainer checklist
+      description: For the maintainer who applies the change.
+      options:
+        - label: Both current and new codeowner have confirmed the transfer in the comments.
+          required: false
+        - label: The new codeowner is a real GitHub account (or team).
+          required: false
+        - label: Edited `.github/CODEOWNERS` and merged the change.
+          required: false
+        - label: Notified Oliver's operator if the per-world repo's owner login is also changing (so future PRs derive the right codeowner).
+          required: false
