@@ -178,6 +178,11 @@ jobs:
           MWGG_CORE_REF: ${{ vars.MWGG_CORE_REF || 'main' }}
           FUZZER_REPO: Eijebong/Archipelago-fuzzer
           FUZZER_REF: main
+          # MWGG core transitively imports Kivy when fuzz.py loads worlds. Kivy's
+          # built-in arg parser intercepts -r / -m and exits 2 with a usage dump
+          # before the fuzzer's argparse ever runs. Disable it per the fuzzer
+          # README: https://github.com/Eijebong/Archipelago-fuzzer#how-to-run-this
+          KIVY_NO_ARGS: "1"
         run: |
           set -euo pipefail
 
