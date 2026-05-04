@@ -1,17 +1,16 @@
 name: IGDB PR-time lookup
 
-# For every PR that changes a `worlds/<slug>.json`, decide one of:
-#   - restore       — base had igdb_id, head doesn't → put it back
-#   - noop          — head already has a non-zero igdb_id → nothing to do
-#   - auto_resolve  — head missing id; IGDB returned exactly one exact-name
-#                     match → commit `igdb_id: <n>` to the PR branch
-#   - needs_input   — multiple candidates / no exact match → comment with up
-#                     to 5 candidates, apply "Needs IGDB id" label
-#   - no_match      — IGDB returned zero results → comment, apply label
+# Triggered when the "Needs IGDB id" label is applied to a PR. Oliver decides
+# whether a PR needs an IGDB id (igdb_id missing from the merged manifest) and
+# applies the label at PR-open time; this workflow then searches IGDB and posts
+# candidates as a sticky comment so the codeowner can pick the right id during
+# review.
 #
-# This workflow does NOT gate Karen's APPROVE step in karen-pr-review.yml;
-# missing igdb_id is fine to merge with. The label is informational so a
-# maintainer notices stuck cases.
+# This workflow does NOT write the manifest, does NOT remove the label, and
+# does NOT gate Karen's APPROVE step in karen-pr-review.yml. Picking a
+# candidate, editing worlds/<slug>.json, and removing the label are the
+# codeowner's responsibility during review — the codeowner reviews anyway and
+# the chance of a clean single-match auto-resolve is too low to design around.
 #
 # Per project_manifest_merge_semantics: igdb_id is one of two Index-controlled
 # fields. The author's own archipelago.json may set igdb_id to opt out of the
@@ -19,14 +18,10 @@ name: IGDB PR-time lookup
 
 on:
   pull_request:
-    types: [opened, synchronize]
-    paths:
-      - "worlds/*.json"
+    types: [labeled]
 
 permissions:
-  contents: write     # Karen pushes restore/auto_resolve commits to the PR branch
-  pull-requests: write
-  issues: write       # for label add/remove (PR labels go through the issues API)
+  pull-requests: write   # post / update the sticky comment
 
 concurrency:
   group: igdb-pr-lookup-${{ github.event.pull_request.number }}
@@ -34,33 +29,19 @@ concurrency:
 
 jobs:
   lookup:
-    # Same-repo PRs only — fork PRs can't reach IGDB credentials, by design.
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    if: >-
+      github.event.label.name == 'Needs IGDB id'
+      && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # IGDB_CLIENT_ID / IGDB_CLIENT_SECRET live in the `igdb_gather` environment,
-    # which is restricted to main + same-repo PRs (the `if:` above enforces the
-    # same-repo half; environment branch protection enforces the main half if
-    # configured).
+    # IGDB_CLIENT_ID / IGDB_CLIENT_SECRET live in the `igdb_gather` environment.
     environment: igdb_gather
 
     steps:
-      - name: Mint Karen's installation token
-        id: karen_token
-        if: vars.KAREN_APP_ID != ''
-        uses: actions/create-github-app-token@v1
-        continue-on-error: true
-        with:
-          app-id: ${{ vars.KAREN_APP_ID }}
-          private-key: ${{ secrets.KAREN_PRIVATE_KEY }}
-          owner: ${{ github.repository_owner }}
-          repositories: ${{ github.event.repository.name }}
-
       - name: Checkout PR head branch
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.ref }}
-          token: ${{ steps.karen_token.outputs.token || secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
       - name: Set up Python
@@ -88,128 +69,33 @@ jobs:
         env:
           IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
           IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           set -euo pipefail
           mkdir -p igdb-actions
           while IFS= read -r path; do
             [ -z "$path" ] && continue
             slug="$(basename "$path" .json)"
-
-            # Materialise the base-ref version of the manifest. If the file is
-            # new on this PR (didn't exist on base), git show errors; fall back
-            # to '{}'.
-            if git show "${BASE_SHA}:${path}" > "igdb-actions/${slug}.base.json" 2>/dev/null; then
-              :
-            else
-              echo "{}" > "igdb-actions/${slug}.base.json"
-            fi
-
-            # Head copy that the script may modify in place.
-            cp "$path" "igdb-actions/${slug}.head.json"
-
             python scripts/igdb_pr_lookup.py \
               --slug "$slug" \
-              --base "igdb-actions/${slug}.base.json" \
-              --head "igdb-actions/${slug}.head.json" \
-              --output "igdb-actions/${slug}.plan.json"
-
-            # If the script modified the head copy, copy it back into the
-            # working tree so the commit step picks it up.
-            if ! cmp -s "$path" "igdb-actions/${slug}.head.json"; then
-              cp "igdb-actions/${slug}.head.json" "$path"
-              echo "modified ${path}"
-            fi
+              --head "$path" \
+              --output "igdb-actions/${slug}.md"
           done < pr-targets.txt
-
-          # Aggregate what we did, for the comment + label steps.
-          jq -s '.' igdb-actions/*.plan.json > igdb-actions/all-plans.json
-
-          # Decide label state: any slug in needs_input or no_match → label on.
-          needs_label=$(jq -r '
-            map(select(.action == "needs_input" or .action == "no_match"))
-            | length > 0
-          ' igdb-actions/all-plans.json)
-          echo "needs_label=${needs_label}" >> "$GITHUB_OUTPUT"
-
-          # Note whether any manifest changed — controls the commit step.
-          if git diff --quiet -- "worlds/*.json"; then
-            echo "manifests_changed=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "manifests_changed=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Commit and push restore / auto_resolve changes to the PR branch
-        if: steps.lookup.outputs.manifests_changed == 'true'
-        env:
-          # Use Karen's identity for the commit (Index-side write — see
-          # project_oliver_app memory). Falls back to GITHUB_TOKEN identity
-          # if the App credentials weren't configured.
-          KAREN_SLUG: ${{ vars.KAREN_SLUG || 'karen-multiworld-bot' }}
-        run: |
-          set -euo pipefail
-          git config user.name "${KAREN_SLUG}[bot]"
-          git config user.email "${KAREN_SLUG}[bot]@users.noreply.github.com"
-          git add worlds/*.json
-
-          # Build a commit message summarising what changed.
-          summary=$(jq -r '
-            map(select(.action == "restore" or .action == "auto_resolve"))
-            | map("- " + .slug + ": " + .action +
-                  (if .igdb_id then " → igdb_id=" + (.igdb_id|tostring) else "" end))
-            | join("\n")
-          ' igdb-actions/all-plans.json)
-
-          git commit -m "chore(igdb): PR-time lookup updated igdb_id for $(jq -r '
-              [.[] | select(.action == "restore" or .action == "auto_resolve") | .slug] | join(", ")
-            ' igdb-actions/all-plans.json)" \
-                     -m "${summary}"
-
-          git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
 
       - name: Build sticky PR comment
         if: steps.detect.outputs.target_count != '0'
-        id: comment
         run: |
           set -euo pipefail
           {
             echo "<!-- igdb-pr-lookup -->"
             echo "## IGDB PR lookup"
             echo
-
-            jq -r '
-              def fmt_candidates: map(
-                "    - **" + .name + "** — id `" + (.id|tostring) + "`" +
-                (if .year then ", year " + (.year|tostring) else "" end) +
-                (if .description and (.description | length) > 0
-                 then "  \n      _" + .description + "_"
-                 else "" end)
-              ) | join("\n");
-
-              .[]
-              | (
-                  if .action == "auto_resolve" then
-                    "- ✅ **" + .slug + "**: matched **" + (.matched_name // "") +
-                    "** → set `igdb_id: " + (.igdb_id|tostring) + "` (commit pushed)."
-                  elif .action == "restore" then
-                    "- ⚠️ **" + .slug + "**: existing `igdb_id` was missing on this PR; restored to `" +
-                    (.igdb_id|tostring) + "`."
-                  elif .action == "noop" then
-                    "- ☑️ **" + .slug + "**: `igdb_id: " + (.igdb_id|tostring) + "` already present."
-                  elif .action == "needs_input" then
-                    "- ❓ **" + .slug + "**: " + .reason + " for `" + .game + "`. Pick one and add it to the manifest:\n" +
-                    (.candidates | fmt_candidates)
-                  elif .action == "no_match" then
-                    "- ❓ **" + .slug + "**: no IGDB match for `" + .game + "`. Set `igdb_id: 0` to acknowledge, or correct the `game` field in the manifest."
-                  elif .action == "no_game_field" then
-                    "- ⚠️ **" + .slug + "**: " + .reason
-                  elif .action == "skipped_no_creds" then
-                    "- ⚠️ **" + .slug + "**: " + .reason
-                  else
-                    "- **" + .slug + "**: unhandled action `" + .action + "`"
-                  end
-                )
-            ' igdb-actions/all-plans.json
+            echo "Oliver flagged this PR as needing an IGDB id. Pick a candidate from the list below, edit \`worlds/<slug>.json\` to add \`\"igdb_id\": <number>\`, and remove the **Needs IGDB id** label when done. If no candidate fits, search [IGDB](https://www.igdb.com/search) directly."
+            echo
+            for f in igdb-actions/*.md; do
+              [ -f "$f" ] || continue
+              cat "$f"
+              echo
+            done
           } > igdb-comment.md
 
       - name: Post or update sticky PR comment
@@ -228,23 +114,4 @@ jobs:
               gh api -X PATCH "repos/${REPO}/issues/comments/${existing}" --input - >/dev/null
           else
             gh pr comment "${PR_NUMBER}" --repo "${REPO}" --body-file igdb-comment.md
-          fi
-
-      - name: Apply or remove the "Needs IGDB id" label
-        if: steps.detect.outputs.target_count != '0'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          REPO: ${{ github.repository }}
-          NEEDS_LABEL: ${{ steps.lookup.outputs.needs_label }}
-        run: |
-          set -euo pipefail
-          label="Needs IGDB id"
-          if [ "${NEEDS_LABEL}" = "true" ]; then
-            gh api -X POST "repos/${REPO}/issues/${PR_NUMBER}/labels" \
-              -f "labels[]=${label}" >/dev/null || true
-          else
-            # Best-effort remove; a 404 means the label wasn't applied, ignore.
-            gh api -X DELETE "repos/${REPO}/issues/${PR_NUMBER}/labels/$(jq -nr --arg l "$label" '$l|@uri')" \
-              >/dev/null 2>&1 || true
           fi
