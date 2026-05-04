@@ -1,6 +1,6 @@
 {
-  "module_location": "git+https://github.com/lallaria/Archipelago.git@7896a51a165290a2ee8c65f173a3a2119ae39410",
-  "world_version": "0.0.8",
+  "module_location": "git+https://github.com/lallaria/Archipelago.git@5f6200f06e2f4c6ae3db4fccaec52c3741366033",
+  "world_version": "0.0.11",
   "game": "Kingdom Hearts Dream Drop Distance",
   "authors": [
     "LuxMake"
