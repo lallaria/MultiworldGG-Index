@@ -180,7 +180,10 @@ jobs:
             jq -r '
               def fmt_candidates: map(
                 "    - **" + .name + "** — id `" + (.id|tostring) + "`" +
-                (if .year then ", year " + (.year|tostring) else "" end)
+                (if .year then ", year " + (.year|tostring) else "" end) +
+                (if .description and (.description | length) > 0
+                 then "  \n      _" + .description + "_"
+                 else "" end)
               ) | join("\n");
 
               .[]

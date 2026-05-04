@@ -42,7 +42,7 @@ import urllib.request
 from typing import Any
 
 IGDB_TOKEN_URL = "https://id.twitch.tv/oauth2/token"
-IGDB_GAMES_URL = "https://api.igdb.com/v4/games"
+IGDB_SEARCH_URL = "https://api.igdb.com/v4/search"
 USER_AGENT = "MultiworldGG-Index-IGDB-PR-Lookup/1.0"
 MAX_CANDIDATES = 5
 
@@ -77,17 +77,27 @@ def get_access_token(client_id: str, client_secret: str) -> str:
 
 
 def igdb_search(client_id: str, token: str, name: str, limit: int) -> list[dict]:
-    """APICalypse search on /v4/games. Returns list of {id, name, first_release_date}."""
-    # Escape embedded double-quotes in the game name for the APICalypse search
-    # clause; APICalypse strings are double-quote delimited.
+    """APICalypse search on /v4/search.
+
+    The search endpoint searches across multiple IGDB record types
+    (games, characters, themes, etc.). We filter to game-type rows by
+    requiring `game != null`, then return the search-row's `game` field
+    (which is the canonical IGDB game id we want for `igdb_id`).
+
+    Returns list of dicts with keys: ``game`` (int — the IGDB game id),
+    ``name`` (str), ``description`` (str | None), ``published_at`` (int
+    unix timestamp | None).
+    """
+    # APICalypse strings are double-quote delimited; escape embedded quotes.
     safe_name = name.replace('"', '\\"')
     body = (
-        f'fields id, name, first_release_date; '
+        f'fields game, name, description, published_at; '
         f'search "{safe_name}"; '
+        f'where game != null; '
         f'limit {int(limit)};'
     )
     req = urllib.request.Request(
-        IGDB_GAMES_URL,
+        IGDB_SEARCH_URL,
         data=body.encode("utf-8"),
         headers={
             "User-Agent": USER_AGENT,
@@ -232,7 +242,16 @@ def main() -> int:
     ]
 
     if len(exact) == 1:
-        igdb_id = int(exact[0]["id"])
+        # The search row's `game` field is the canonical IGDB game id (the
+        # row's own `id` is the search-record id, which is not what we want).
+        game_id_raw = exact[0].get("game")
+        if not isinstance(game_id_raw, int):
+            write_plan(
+                args.output, "no_match", args.slug, game=game,
+                reason=f"IGDB returned an exact name match but with no game id (row={exact[0]!r}).",
+            )
+            return 0
+        igdb_id = int(game_id_raw)
         head_manifest["igdb_id"] = igdb_id
         write_manifest_in_place(args.head, head_manifest)
         write_plan(
@@ -243,14 +262,20 @@ def main() -> int:
         )
         return 0
 
-    candidates_short = [
-        {
-            "id": c.get("id"),
+    candidates_short = []
+    for c in candidates[:MAX_CANDIDATES]:
+        game_id = c.get("game")
+        if not isinstance(game_id, int):
+            continue
+        desc = c.get("description")
+        if isinstance(desc, str) and len(desc) > 160:
+            desc = desc[:157].rstrip() + "…"
+        candidates_short.append({
+            "id": int(game_id),
             "name": c.get("name", ""),
-            "year": _year_from_unix(c.get("first_release_date")),
-        }
-        for c in candidates[:MAX_CANDIDATES]
-    ]
+            "year": _year_from_unix(c.get("published_at")),
+            "description": desc if isinstance(desc, str) else None,
+        })
     write_plan(
         args.output, "needs_input", args.slug, game=game,
         candidates=candidates_short,
