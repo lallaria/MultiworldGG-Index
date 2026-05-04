@@ -178,8 +178,11 @@ jobs:
             | head -n 1 || true)
           if [ -n "${existing}" ]; then
             echo "updating comment ${existing}"
-            gh api -X PATCH "repos/${REPO}/issues/comments/${existing}" \
-              -f "body=@karen-comment.md" >/dev/null
+            # `gh api -f body=@file` does NOT expand @ to file contents — it
+            # treats the value as the literal string. Build a JSON body with
+            # jq's --rawfile and pipe it via --input -.
+            jq -n --rawfile body karen-comment.md '{body: $body}' | \
+              gh api -X PATCH "repos/${REPO}/issues/comments/${existing}" --input - >/dev/null
           else
             echo "creating new comment"
             gh pr comment "${PR_NUMBER}" --repo "${REPO}" --body-file karen-comment.md
