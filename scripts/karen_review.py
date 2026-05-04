@@ -237,6 +237,45 @@ def _http_check(url: str) -> tuple[bool, str]:
         return False, f"unreachable: {exc}"
 
 
+def _git_check(url: str) -> tuple[bool, str]:
+    """Reachability check for `git+...` URLs via `git ls-remote`.
+
+    `git+https://` and `git+ssh://` are pip's clone-URL convention (PEP 440
+    direct references); urllib doesn't know them. Use `git ls-remote` to
+    confirm the remote responds AND the referenced ref exists.
+    """
+    params = _parse_module_location(url)
+    if not params:
+        return False, f"could not parse git URL: {url}"
+    clone_url = params["clone_url"]
+    ref = params["ref"]
+    try:
+        result = subprocess.run(
+            ["git", "ls-remote", clone_url, ref],
+            capture_output=True,
+            text=True,
+            timeout=URL_FETCH_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired:
+        return False, f"git ls-remote timed out after {URL_FETCH_TIMEOUT_SECONDS}s"
+    except OSError as exc:
+        return False, f"git ls-remote failed to run: {exc}"
+    if result.returncode != 0:
+        stderr = result.stderr.strip().splitlines()[-1] if result.stderr.strip() else "unknown error"
+        return False, f"git ls-remote rc={result.returncode}: {stderr}"
+    stdout = result.stdout.strip()
+    if not stdout:
+        # Could be a SHA pinned ref (ls-remote doesn't list raw SHAs). Accept
+        # if the ref looks like a 40-char hex SHA — confirming the SHA is
+        # reachable would require a fetch, which is what the size_sanity
+        # check does later anyway.
+        if re.fullmatch(r"[0-9a-f]{40}", ref):
+            return True, f"ref appears to be a SHA; deferring to clone-step check"
+        return False, f"ref '{ref}' not found at {clone_url}"
+    sha = stdout.split()[0][:8]
+    return True, f"ref {ref} resolves to {sha}"
+
+
 def check_url_reachability(manifest_path: Path, lenient: bool = False) -> CheckResult:
     """HEAD/GET module_location, repo_url, tracker.
 
@@ -253,7 +292,11 @@ def check_url_reachability(manifest_path: Path, lenient: bool = False) -> CheckR
         url = manifest.get(field_name)
         if not url:
             continue
-        ok, msg = _http_check(url)
+        # `git+https://` / `git+ssh://` aren't HTTP — probe via git ls-remote.
+        if url.startswith("git+"):
+            ok, msg = _git_check(url)
+        else:
+            ok, msg = _http_check(url)
         marker = "ok" if ok else "FAIL"
         results.append(f"{marker} {field_name}: {url} -> {msg}")
         if not ok:
