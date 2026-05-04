@@ -176,6 +176,12 @@ jobs:
         env:
           MWGG_CORE_REPO: ${{ vars.MWGG_CORE_REPO || 'MultiworldGG/MultiworldGG' }}
           MWGG_CORE_REF: ${{ vars.MWGG_CORE_REF || 'main' }}
+          # mwgg_igdb is a separate single-file package published from this
+          # Index repo's variant orphan branches. Generate.py imports it; without
+          # it, fuzz.py's `from Generate import main` raises ModuleNotFoundError
+          # and the fuzzer never starts. Default to the canonical 16+ variant.
+          MWGG_IGDB_REPO: ${{ vars.MWGG_IGDB_REPO || github.repository }}
+          MWGG_IGDB_VARIANT_REF: ${{ vars.MWGG_IGDB_VARIANT_REF || 'game_index_sixteen' }}
           FUZZER_REPO: Eijebong/Archipelago-fuzzer
           FUZZER_REF: main
           # MWGG core transitively imports Kivy when fuzz.py loads worlds. Kivy's
@@ -229,6 +235,11 @@ jobs:
               else
                 python -m pip install -r requirements.txt
               fi
+              # Install the mwgg_igdb variant package. Generate.py imports
+              # `from mwgg_igdb import GameIndex` at module load; if missing,
+              # fuzz.py crashes before the fuzzer ever runs.
+              python -m pip install "git+https://github.com/${MWGG_IGDB_REPO}@${MWGG_IGDB_VARIANT_REF}"
+
               # Pip-install the proposed apworld wheel (the actual world under review).
               python -m pip install "${module_location}"
 
