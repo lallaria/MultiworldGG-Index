@@ -406,6 +406,43 @@ jobs:
           owner: ${{ github.repository_owner }}
           repositories: ${{ github.event.repository.name }}
 
+      # ──────────────────────────────────────────────────────────────────────
+      # Tag the PR head as `igdb-pr-<number>` if the PR carries the
+      # "Needs IGDB id" label. The tag is what gets the run into the
+      # `igdb_gather` deployment-branch policy on the environment side, so
+      # igdb-pr-lookup.yml can mint IGDB credentials and post candidates.
+      #
+      # Karen is exempt from the org's tag-creation ruleset (push-time block
+      # everyone else); using her installation token is what makes this work.
+      #
+      # Idempotent: skip if the tag already exists. We do NOT force-update
+      # on PR synchronize — this is a convenience hook, not a robust pipeline.
+      # ──────────────────────────────────────────────────────────────────────
+      - name: Tag PR head if 'Needs IGDB id' label is present
+        if: steps.karen_token.outputs.token != '' && always()
+        env:
+          GH_TOKEN: ${{ steps.karen_token.outputs.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          has_label=$(gh api "repos/${REPO}/issues/${PR_NUMBER}/labels" \
+            --jq '[.[] | select(.name == "Needs IGDB id")] | length')
+          if [ "${has_label}" = "0" ]; then
+            echo "PR does not have 'Needs IGDB id' label; skipping tag creation."
+            exit 0
+          fi
+          tag="igdb-pr-${PR_NUMBER}"
+          if gh api "repos/${REPO}/git/refs/tags/${tag}" >/dev/null 2>&1; then
+            echo "Tag ${tag} already exists; skipping (no force-update)."
+            exit 0
+          fi
+          gh api -X POST "repos/${REPO}/git/refs" \
+            -f ref="refs/tags/${tag}" \
+            -f sha="${HEAD_SHA}"
+          echo "Created tag ${tag} at ${HEAD_SHA}"
+
       - name: Karen submits APPROVE on green
         if: |
           steps.karen_token.outputs.token != '' &&

@@ -1,47 +1,67 @@
 name: IGDB PR-time lookup
 
-# Triggered when the "Needs IGDB id" label is applied to a PR. Oliver decides
-# whether a PR needs an IGDB id (igdb_id missing from the merged manifest) and
-# applies the label at PR-open time; this workflow then searches IGDB and posts
-# candidates as a sticky comment so the codeowner can pick the right id during
-# review.
+# Triggered when Karen pushes an `igdb-pr-<number>` tag at the PR head SHA.
+# Karen does this in karen-pr-review.yml when she sees the `Needs IGDB id`
+# label (which Oliver applies at PR-open time when the merged manifest lacks
+# igdb_id). The tag → environment plumbing exists because the `igdb_gather`
+# environment's deployment-branch policy includes `igdb-*` tags but NOT
+# arbitrary PR branches; running on the tagged ref is what unlocks the IGDB
+# credentials.
 #
 # This workflow does NOT write the manifest, does NOT remove the label, and
 # does NOT gate Karen's APPROVE step in karen-pr-review.yml. Picking a
 # candidate, editing worlds/<slug>.json, and removing the label are the
-# codeowner's responsibility during review — the codeowner reviews anyway and
-# the chance of a clean single-match auto-resolve is too low to design around.
-#
-# Per project_manifest_merge_semantics: igdb_id is one of two Index-controlled
-# fields. The author's own archipelago.json may set igdb_id to opt out of the
-# Index lookup (their value wins on the next Oliver-driven update).
+# codeowner's responsibility during review.
 
 on:
-  pull_request:
-    types: [labeled]
+  push:
+    tags: ['igdb-pr-*']
 
 permissions:
+  contents: read         # checkout the tagged ref
   pull-requests: write   # post / update the sticky comment
 
 concurrency:
-  group: igdb-pr-lookup-${{ github.event.pull_request.number }}
+  group: igdb-pr-lookup-${{ github.ref_name }}
   cancel-in-progress: true
 
 jobs:
   lookup:
-    if: >-
-      github.event.label.name == 'Needs IGDB id'
-      && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # IGDB_CLIENT_ID / IGDB_CLIENT_SECRET live in the `igdb_gather` environment.
     environment: igdb_gather
 
     steps:
-      - name: Checkout PR head branch
+      - name: Derive PR number from tag
+        id: pr
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF#refs/tags/}"
+          number="${tag#igdb-pr-}"
+          if ! [[ "${number}" =~ ^[0-9]+$ ]]; then
+            echo "Tag ${tag} did not match igdb-pr-<number>; aborting."
+            exit 1
+          fi
+          echo "number=${number}" >> "$GITHUB_OUTPUT"
+
+      - name: Look up PR head + base
+        id: prinfo
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+        run: |
+          set -euo pipefail
+          json=$(gh api "repos/${REPO}/pulls/${PR_NUMBER}")
+          base_sha=$(echo "${json}" | jq -r '.base.sha')
+          head_sha=$(echo "${json}" | jq -r '.head.sha')
+          echo "base_sha=${base_sha}" >> "$GITHUB_OUTPUT"
+          echo "head_sha=${head_sha}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout the tagged ref
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.ref }}
+          ref: ${{ github.ref }}
           fetch-depth: 0
 
       - name: Set up Python
@@ -52,8 +72,8 @@ jobs:
       - name: Detect changed manifests
         id: detect
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ steps.prinfo.outputs.base_sha }}
+          HEAD_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
           git diff --name-only "${BASE_SHA}...${HEAD_SHA}" \
@@ -64,7 +84,6 @@ jobs:
           cat pr-targets.txt || true
 
       - name: Run IGDB lookup per slug
-        id: lookup
         if: steps.detect.outputs.target_count != '0'
         env:
           IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
@@ -89,7 +108,7 @@ jobs:
             echo "<!-- igdb-pr-lookup -->"
             echo "## IGDB PR lookup"
             echo
-            echo "Oliver flagged this PR as needing an IGDB id. Pick a candidate from the list below, edit \`worlds/<slug>.json\` to add \`\"igdb_id\": <number>\`, and remove the **Needs IGDB id** label when done. If no candidate fits, search [IGDB](https://www.igdb.com/search) directly."
+            echo "Karen flagged this PR as needing an IGDB id. Pick a candidate from the list below, edit \`worlds/<slug>.json\` to add \`\"igdb_id\": <number>\`, and remove the **Needs IGDB id** label when done. If no candidate fits, search [IGDB](https://www.igdb.com/search) directly."
             echo
             for f in igdb-actions/*.md; do
               [ -f "$f" ] || continue
@@ -102,7 +121,7 @@ jobs:
         if: steps.detect.outputs.target_count != '0'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
