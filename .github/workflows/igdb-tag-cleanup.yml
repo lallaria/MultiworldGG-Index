@@ -1,0 +1,47 @@
+name: Cleanup IGDB tag on merge
+
+# When a PR with an `igdb-pr-<number>` tag is merged, delete the tag so it
+# doesn't accumulate in the repo. Karen-credentialed because she's exempt
+# from the tag ruleset.
+#
+# Only runs on merge (not on close-without-merge) — if the PR is abandoned,
+# the tag is harmless and can be cleaned up by hand if it ever matters.
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Mint Karen's installation token
+        id: karen_token
+        if: vars.KAREN_APP_ID != ''
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.KAREN_APP_ID }}
+          private-key: ${{ secrets.KAREN_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+
+      - name: Delete igdb-pr-<number> tag if it exists
+        if: steps.karen_token.outputs.token != ''
+        env:
+          GH_TOKEN: ${{ steps.karen_token.outputs.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          tag="igdb-pr-${PR_NUMBER}"
+          if gh api "repos/${REPO}/git/refs/tags/${tag}" >/dev/null 2>&1; then
+            gh api -X DELETE "repos/${REPO}/git/refs/tags/${tag}"
+            echo "Deleted tag ${tag}"
+          else
+            echo "Tag ${tag} did not exist; nothing to delete."
+          fi
