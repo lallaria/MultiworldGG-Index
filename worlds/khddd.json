@@ -3,6 +3,7 @@
   "authors": [
     "LuxMake"
   ],
+  "igdb_id": 117525,
   "minimum_ap_version": "0.6.3",
   "world_version": "0.0.14",
   "module_location": "git+https://github.com/lallaria/Archipelago.git@e7f170e922e6e6d2baa784b10908127936ae86e4"
