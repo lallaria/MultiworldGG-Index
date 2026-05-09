@@ -10,11 +10,6 @@
         "module_location"
     ],
     "additionalProperties": true,
-    "patternProperties": {
-        "^_comment(_|$)": {
-            "description": "Inline-comment fields, ignored by all consumers. Convention: '_comment_<field>' or '_comment'."
-        }
-    },
     "properties": {
         "game": {
             "type": "string",
@@ -32,84 +27,6 @@
             "minLength": 1,
             "pattern": "^v?[0-9]+(\\.[0-9]+)*([._-][A-Za-z0-9]+)*$",
             "description": "Semver-shape version of the world implementation. Used for the .apworld vs index precedence rule (higher wins; tiebreaker: installed wheel)."
-        },
-        "world_version_full": {
-            "type": "string",
-            "minLength": 1,
-            "description": "Free-form descriptive version (e.g. 'alpha02i.1', '20260210-1'). Cosmetic; not parsed."
-        },
-        "minimum_ap_version": {
-            "type": "string",
-            "minLength": 1,
-            "pattern": "^v?[0-9]+(\\.[0-9]+)*([._-][A-Za-z0-9]+)*$",
-            "description": "Minimum AP/MultiworldGG core version this world supports. Used to gate compatibility on install."
-        },
-        "authors": {
-            "type": "array",
-            "minItems": 1,
-            "uniqueItems": true,
-            "items": {
-                "type": "string",
-                "minLength": 1
-            },
-            "description": "World authors, displayed in launcher / tracker UIs."
-        },
-        "contributors": {
-            "type": "array",
-            "uniqueItems": true,
-            "items": {
-                "type": "string",
-                "minLength": 1
-            },
-            "description": "Secondary credit list. Distinct from 'authors'; not surfaced everywhere."
-        },
-        "igdb_id": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "IGDB game id. 0 means 'no IGDB entry' (e.g. for original worlds with no commercial counterpart). The igdb-game-details workflow keys off this on PR merge."
-        },
-        "compatible_version": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "Lowest APContainer (.apworld) schema version this world remains binary-compatible with. Canonical universal value is 7."
-        },
-        "version": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "APContainer (.apworld) schema version this world was packaged with."
-        },
-        "build_version": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "Build counter for the bundled artifact, when distinct from APContainer 'version'. Rarely set."
-        },
-        "repo_url": {
-            "type": "string",
-            "format": "uri",
-            "pattern": "^(https?://|git\\+|ssh://)",
-            "description": "Upstream repository URL when distinct from module_location (e.g. for worlds whose canonical home is outside MultiworldGG/MultiworldGG)."
-        },
-        "tracker": {
-            "type": "string",
-            "format": "uri",
-            "pattern": "^https?://",
-            "description": "URL to a community tracker (e.g. PopTracker pack release page)."
-        },
-        "flags": {
-            "type": "array",
-            "uniqueItems": true,
-            "items": {
-                "type": "string",
-                "minLength": 1
-            },
-            "description": "Free-form capability flags. Consumers ignore unknown values; adding a new flag does not require a schema change."
-        },
-        "changelog": {
-            "type": "array",
-            "items": {
-                "type": "string"
-            },
-            "description": "Markdown lines, oldest-last. Cosmetic; not parsed."
         }
     }
 }
