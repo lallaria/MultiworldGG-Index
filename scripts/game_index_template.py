@@ -133,10 +133,10 @@ class _GameIndexClass(object):
             self.search_index = term, game_module
 
     def get_module_for_game(self, game_name: str, worlds: bool = False):
-        """Resolve a display game name to its module slug.
+        """Resolve a display game name to its module apworld.
 
         With worlds=True, returns the dotted package path (e.g. "worlds.alttp")
-        suitable for sys.modules lookup; otherwise returns the bare slug.
+        suitable for sys.modules lookup; otherwise returns the bare apworld.
         Returns None if the game name is unknown.
         """
         module = self._game_names.get(game_name)
@@ -145,14 +145,14 @@ class _GameIndexClass(object):
         return module
 
     def get_game_name_for_module(self, module_name: str):
-        """Resolve a module slug (with or without 'worlds.' prefix) to its display name.
-        Returns None if the slug is unknown."""
+        """Resolve a module apworld (with or without 'worlds.' prefix) to its display name.
+        Returns None if the apworld is unknown."""
         if module_name.startswith("worlds."):
             module_name = module_name[len("worlds."):]
         return self._module_to_name.get(module_name)
 
     def get_all_games(self) -> dict:
-        """Return the full GAMES_DATA dict (slug -> game data)."""
+        """Return the full GAMES_DATA dict (apworld -> game data)."""
         return self._games
 
     def get_all_game_names(self) -> list:

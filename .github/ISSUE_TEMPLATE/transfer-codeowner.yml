@@ -1,6 +1,6 @@
 name: Transfer codeowner of a world
-description: Hand off CODEOWNERS responsibility for a `worlds/<slug>.json` entry to a different GitHub account.
-title: "[codeowner-transfer] <slug>: <current> → <new>"
+description: Hand off CODEOWNERS responsibility for a `worlds/<apworld>.json` entry to a different GitHub account.
+title: "[codeowner-transfer] <apworld>: <current> → <new>"
 labels: ["codeowner-transfer"]
 body:
   - type: markdown
@@ -13,9 +13,9 @@ body:
         applies the change manually. Both the current and the proposed new codeowner should
         confirm the transfer in the comments before the maintainer merges.
   - type: input
-    id: slug
+    id: apworld
     attributes:
-      label: Slug
+      label: APWorld
       description: Filename stem under `worlds/` (e.g. `clique` for `worlds/clique.json`). Lowercase letters, digits, and underscores only.
       placeholder: "clique"
     validations:
@@ -24,7 +24,7 @@ body:
     id: current
     attributes:
       label: Current codeowner
-      description: GitHub handle currently listed for `worlds/<slug>.json` in `.github/CODEOWNERS`. Without the leading `@`.
+      description: GitHub handle currently listed for `worlds/<apworld>.json` in `.github/CODEOWNERS`. Without the leading `@`.
       placeholder: "alice"
     validations:
       required: true

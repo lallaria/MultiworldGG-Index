@@ -1,22 +1,22 @@
 """IGDB enrichment for the MultiworldGG-Index repo.
 
-Reads `worlds/<slug>.json` for one or more slugs, queries IGDB for the matching
+Reads `worlds/<apworld>.json` for one or more apworlds, queries IGDB for the matching
 game's metadata, and updates `output/igdb_enrichment.json` in place. Existing
-entries for unaffected slugs are preserved.
+entries for unaffected apworlds are preserved.
 
-Triggered by `.github/workflows/igdb-enrich.yml` on every push to `main` that
+Triggered by `.github/workflows/igdb-game-details.yml` on every push to `main` that
 touches `worlds/*.json`. Can also be run locally:
 
     IGDB_CLIENT_ID=... IGDB_CLIENT_SECRET=... \\
-        python scripts/igdb_enrich.py --slug oot --slug alttp
+        python scripts/igdb_game_details.py --apworld oot --apworld alttp
 
     # Re-enrich every world (slow, hits rate limits — use sparingly):
     IGDB_CLIENT_ID=... IGDB_CLIENT_SECRET=... \\
-        python scripts/igdb_enrich.py --all
+        python scripts/igdb_game_details.py --all
 
 Adapted from the original `tools/game_indexing/igdb.py` in the monorepo, with
 file-based credential / token caching replaced by environment variables and
-the manifest-walking removed (the Index repo's `worlds/<slug>.json` is the
+the manifest-walking removed (the Index repo's `worlds/<apworld>.json` is the
 canonical input now, not the per-world `archipelago.json`).
 """
 
@@ -58,10 +58,10 @@ ENRICHMENT_FIELDS = (
     "release_date",
 )
 
-# Slugs whose game name implies adult content regardless of IGDB age rating.
+# APWorlds whose game name implies adult content regardless of IGDB age rating.
 # Originally inlined in tools/game_indexing/igdb.py; kept for parity until a
 # better tagging mechanism exists.
-AO_NAME_HINTS = ("sex", "hunie")
+AO_NAME_HINTS = ("hunie")
 
 # Default enrichment row for original / hint worlds (igdb_id == 0 or missing).
 DEFAULT_ORIGINAL_WORLD_ENTRY = {
@@ -213,14 +213,14 @@ def fetch_igdb_details(client_id: str, token: str, igdb_id: int) -> dict:
     }
 
 
-def build_entry_for_slug(
-    slug: str,
+def build_entry_for_apworld(
+    apworld: str,
     manifest: dict,
     *,
     client_id: str,
     token: str,
 ) -> dict:
-    """Return the enrichment row for one slug, matching ENRICHMENT_FIELDS."""
+    """Return the enrichment row for one apworld, matching ENRICHMENT_FIELDS."""
     game_name = manifest.get("game", "")
     igdb_id = manifest.get("igdb_id", 0)
     if not igdb_id:
@@ -262,12 +262,12 @@ def build_entry_for_slug(
     }
 
 
-def discover_slugs(worlds_dir: Path) -> list[str]:
+def discover_apworlds(worlds_dir: Path) -> list[str]:
     return sorted(p.stem for p in worlds_dir.glob("*.json"))
 
 
-def load_manifest(worlds_dir: Path, slug: str) -> Optional[dict]:
-    path = worlds_dir / f"{slug}.json"
+def load_manifest(worlds_dir: Path, apworld: str) -> Optional[dict]:
+    path = worlds_dir / f"{apworld}.json"
     if not path.is_file():
         return None
     with open(path, encoding="utf-8") as f:
@@ -288,8 +288,8 @@ def write_enrichment(path: Path, data: dict) -> None:
         f.write("\n")
 
 
-def enrich(
-    slugs: Iterable[str],
+def game_details(
+    apworlds: Iterable[str],
     *,
     worlds_dir: Path,
     enrichment_path: Path,
@@ -298,31 +298,31 @@ def enrich(
     sleep_between: float = 0.25,
     dry_run: bool = False,
 ) -> dict[str, str]:
-    """Enrich the given slugs. Returns a `slug -> status` mapping for the report."""
+    """Enrich the given apworlds. Returns a `apworld -> status` mapping for the report."""
     token = get_access_token(client_id, client_secret)
     enrichment = load_enrichment(enrichment_path)
     statuses: dict[str, str] = {}
     changed = False
 
-    for slug in slugs:
-        manifest = load_manifest(worlds_dir, slug)
+    for apworld in apworlds:
+        manifest = load_manifest(worlds_dir, apworld)
         if manifest is None:
-            statuses[slug] = "skipped:no-manifest"
+            statuses[apworld] = "skipped:no-manifest"
             continue
         try:
-            new_entry = build_entry_for_slug(
-                slug, manifest, client_id=client_id, token=token
+            new_entry = build_entry_for_apworld(
+                apworld, manifest, client_id=client_id, token=token
             )
         except (urllib.error.HTTPError, urllib.error.URLError) as exc:
-            statuses[slug] = f"failed:{exc}"
+            statuses[apworld] = f"failed:{exc}"
             continue
-        old_entry = enrichment.get(slug)
+        old_entry = enrichment.get(apworld)
         if old_entry == new_entry:
-            statuses[slug] = "unchanged"
+            statuses[apworld] = "unchanged"
         else:
-            enrichment[slug] = new_entry
+            enrichment[apworld] = new_entry
             changed = True
-            statuses[slug] = "updated" if old_entry is not None else "added"
+            statuses[apworld] = "updated" if old_entry is not None else "added"
         # Be polite to IGDB.
         time.sleep(sleep_between)
 
@@ -334,9 +334,9 @@ def enrich(
 def _cli(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Enrich worlds with IGDB metadata.")
     parser.add_argument(
-        "--slug", action="append", default=[], help="Slug to enrich. Repeatable."
+        "--apworld", action="append", default=[], help="APWorld to enrich. Repeatable."
     )
-    parser.add_argument("--all", action="store_true", help="Enrich every slug under --worlds-dir")
+    parser.add_argument("--all", action="store_true", help="Enrich every apworld under --worlds-dir")
     parser.add_argument("--worlds-dir", type=Path, default=Path("worlds"))
     parser.add_argument(
         "--enrichment-path", type=Path, default=Path("output/igdb_enrichment.json")
@@ -344,8 +344,8 @@ def _cli(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(argv)
 
-    if not args.slug and not args.all:
-        print("nothing to do (no --slug given and --all not set)", file=sys.stderr)
+    if not args.apworld and not args.all:
+        print("nothing to do (no --apworld given and --all not set)", file=sys.stderr)
         return 0
 
     client_id = os.environ.get("IGDB_CLIENT_ID", "").strip()
@@ -358,12 +358,12 @@ def _cli(argv: Optional[list[str]] = None) -> int:
         return 2
 
     if args.all:
-        slugs = discover_slugs(args.worlds_dir)
+        apworlds = discover_apworlds(args.worlds_dir)
     else:
-        slugs = list(dict.fromkeys(args.slug))
+        apworlds = list(dict.fromkeys(args.apworld))
 
-    statuses = enrich(
-        slugs,
+    statuses = game_details(
+        apworlds,
         worlds_dir=args.worlds_dir,
         enrichment_path=args.enrichment_path,
         client_id=client_id,
@@ -380,9 +380,9 @@ def _cli(argv: Optional[list[str]] = None) -> int:
         f"updated/added: {n_updated}, unchanged: {n_unchanged}, "
         f"failed: {n_failed}, skipped: {n_skipped}"
     )
-    for slug, status in sorted(statuses.items()):
+    for apworld, status in sorted(statuses.items()):
         if status not in ("unchanged",):
-            print(f"  {slug}: {status}")
+            print(f"  {apworld}: {status}")
 
     return 0 if n_failed == 0 else 1
 

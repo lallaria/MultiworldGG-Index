@@ -10,7 +10,7 @@ name: IGDB PR-time lookup
 #
 # This workflow does NOT write the manifest, does NOT remove the label, and
 # does NOT gate Karen's APPROVE step in karen-pr-review.yml. Picking a
-# candidate, editing worlds/<slug>.json, and removing the label are the
+# candidate, editing worlds/<apworld>.json, and removing the label are the
 # codeowner's responsibility during review.
 
 on:
@@ -83,7 +83,7 @@ jobs:
           echo "Changed worlds:"
           cat pr-targets.txt || true
 
-      - name: Run IGDB lookup per slug
+      - name: Run IGDB lookup per apworld
         if: steps.detect.outputs.target_count != '0'
         env:
           IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
@@ -93,11 +93,11 @@ jobs:
           mkdir -p igdb-actions
           while IFS= read -r path; do
             [ -z "$path" ] && continue
-            slug="$(basename "$path" .json)"
+            apworld="$(basename "$path" .json)"
             python scripts/igdb_pr_lookup.py \
-              --slug "$slug" \
+              --apworld "$apworld" \
               --head "$path" \
-              --output "igdb-actions/${slug}.md"
+              --output "igdb-actions/${apworld}.md"
           done < pr-targets.txt
 
       - name: Build sticky PR comment
@@ -108,7 +108,7 @@ jobs:
             echo "<!-- igdb-pr-lookup -->"
             echo "## IGDB PR lookup"
             echo
-            echo "Karen flagged this PR as needing an IGDB id. Pick a candidate from the list below, edit \`worlds/<slug>.json\` to add \`\"igdb_id\": <number>\`, and remove the **Needs IGDB id** label when done. If no candidate fits, search [IGDB](https://www.igdb.com/search) directly."
+            echo "Karen flagged this PR as needing an IGDB id. Pick a candidate from the list below, edit \`worlds/<apworld>.json\` to add \`\"igdb_id\": <number>\`, and remove the **Needs IGDB id** label when done. If no candidate fits, search [IGDB](https://www.igdb.com/search) directly."
             echo
             for f in igdb-actions/*.md; do
               [ -f "$f" ] || continue

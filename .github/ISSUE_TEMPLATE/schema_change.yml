@@ -10,7 +10,7 @@ body:
       options:
         - schema/world_manifest.schema.json
         - scripts/karen_review.py (Karen's checks)
-        - scripts/igdb_enrich.py
+        - scripts/igdb_game_details.py
         - scripts/build_variants.py
         - scripts/manifest.py
         - .github/workflows/

@@ -1,11 +1,11 @@
-name: IGDB enrichment on merge
+name: IGDB game details on merge
 
-# Runs after a PR merges to main. For each `worlds/<slug>.json` that the merge
+# Runs after a PR merges to main. For each `worlds/<apworld>.json` that the merge
 # commit added or modified, hits IGDB for current metadata and updates the
-# slug's row in `output/igdb_enrichment.json`. Commits the diff back to main
+# apworld's row in `output/igdb_game details.json`. Commits the diff back to main
 # with `[skip ci]` so the daily-release / Karen workflows don't re-trigger.
 #
-# Manual run: workflow_dispatch with optional --slug input.
+# Manual run: workflow_dispatch with optional --apworld input.
 
 on:
   push:
@@ -14,12 +14,12 @@ on:
       - "worlds/**.json"
   workflow_dispatch:
     inputs:
-      slug:
-        description: "Single slug to enrich (e.g. 'oot'). Leave blank to enrich every changed slug, or set --all below."
+      apworld:
+        description: "Single apworld to get game details for (e.g. 'oot'). Leave blank to get game details for every changed apworld, or set --all below."
         required: false
         type: string
       all:
-        description: "Enrich every slug (slow; hits IGDB rate limits)."
+        description: "Get game details for every apworld (slow; hits IGDB rate limits)."
         required: false
         type: boolean
         default: false
@@ -28,13 +28,13 @@ permissions:
   contents: write
 
 concurrency:
-  # Serialise enrich runs against main — prevents two pushes racing on the
-  # same igdb_enrichment.json commit.
-  group: igdb-enrich-main
+  # Serialise game details runs against main — prevents two pushes racing on the
+  # same igdb_game_details.json commit.
+  group: igdb-game-details-main
   cancel-in-progress: false
 
 jobs:
-  enrich:
+  game-details:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     # Pulls IGDB_CLIENT_ID / IGDB_CLIENT_SECRET from the `igdb_gather`
@@ -53,46 +53,46 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Detect target slugs
+      - name: Detect target apworlds
         id: detect
         env:
-          DISPATCH_SLUG: ${{ inputs.slug }}
+          DISPATCH_APWORLD: ${{ inputs.apworld }}
           DISPATCH_ALL: ${{ inputs.all }}
         run: |
           set -euo pipefail
           mode=""
-          slugs=""
+          apworlds=""
 
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             if [ "${DISPATCH_ALL}" = "true" ]; then
               mode="all"
-            elif [ -n "${DISPATCH_SLUG:-}" ]; then
+            elif [ -n "${DISPATCH_APWORLD:-}" ]; then
               mode="explicit"
-              slugs="${DISPATCH_SLUG}"
+              apworlds="${DISPATCH_APWORLD}"
             else
               mode="none"
             fi
           else
             # push event: diff the commit's worlds/*.json changes
             mode="diff"
-            slugs=$(git diff-tree --no-commit-id --name-only -r "${{ github.sha }}" \
+            apworlds=$(git diff-tree --no-commit-id --name-only -r "${{ github.sha }}" \
                       | grep -E '^worlds/[^/]+\.json$' \
                       | sed -E 's|^worlds/(.+)\.json$|\1|' || true)
           fi
 
           echo "mode=${mode}" >> "$GITHUB_OUTPUT"
           {
-            echo "slugs<<EOF"
-            echo "${slugs}"
+            echo "apworlds<<EOF"
+            echo "${apworlds}"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
           echo "Detected mode: ${mode}"
-          echo "Slugs:"
-          echo "${slugs}" | sed 's/^/  /'
+          echo "APWorlds:"
+          echo "${apworlds}" | sed 's/^/  /'
 
-      - name: Run IGDB enrichment
-        id: enrich
-        if: steps.detect.outputs.mode != 'none' && (steps.detect.outputs.mode == 'all' || steps.detect.outputs.slugs != '')
+      - name: Run IGDB game details
+        id: game-details
+        if: steps.detect.outputs.mode != 'none' && (steps.detect.outputs.mode == 'all' || steps.detect.outputs.apworlds != '')
         env:
           IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
           IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
@@ -107,16 +107,16 @@ jobs:
           if [ "${{ steps.detect.outputs.mode }}" = "all" ]; then
             args+=("--all")
           else
-            while IFS= read -r slug; do
-              [ -n "$slug" ] && args+=("--slug" "$slug")
-            done <<< "${{ steps.detect.outputs.slugs }}"
+            while IFS= read -r apworld; do
+              [ -n "$apworld" ] && args+=("--apworld" "$apworld")
+            done <<< "${{ steps.detect.outputs.apworlds }}"
           fi
 
-          python scripts/igdb_enrich.py "${args[@]}" \
-            --enrichment-path output/igdb_enrichment.json \
+          python scripts/igdb_game_details.py "${args[@]}" \
+            --game details-path output/igdb_game details.json \
             --worlds-dir worlds
 
-      - name: Commit enrichment back to main
+      - name: Commit game details back to main
         if: steps.detect.outputs.mode != 'none'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -125,12 +125,12 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          if git diff --quiet output/igdb_enrichment.json; then
-            echo "no changes to igdb_enrichment.json"
+          if git diff --quiet output/igdb_game details.json; then
+            echo "no changes to igdb_game details.json"
             exit 0
           fi
 
-          git add output/igdb_enrichment.json
-          git commit -m "chore(igdb): refresh enrichment [skip ci]" \
+          git add output/igdb_game details.json
+          git commit -m "chore(igdb): refresh game details [skip ci]" \
                      -m "Triggered by ${{ github.event_name }} on ${{ github.sha }}."
           git push origin HEAD:main

@@ -7,17 +7,17 @@ KAREN_HUMAN_REVIEWERS) approves on green.
 
 ## Manifest update
 
-- **Slug:** `<slug>`
+- **APWorld:** `<apworld>`
 - **World version:** `<world_version>`
 - **Source release:** <upstream release URL>
 
 ## Changes
 
 <!-- Filled in by the publishing Action: a diff summary of fields that changed
-since the previous worlds/<slug>.json on main. -->
+since the previous worlds/<apworld>.json on main. -->
 
 ## Karen's review
 
 Karen will post a sticky comment on this PR with the 7-check result. If any
 check is red, fix the underlying issue in the per-world repo and re-publish;
-do not edit `worlds/<slug>.json` here directly.
+do not edit `worlds/<apworld>.json` here directly.

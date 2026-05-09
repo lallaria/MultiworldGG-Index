@@ -1,12 +1,12 @@
 name: Manifest data issue
-description: Wrong / missing data in a `worlds/<slug>.json` entry (game name, IGDB id, version, URL, etc.)
-title: "[manifest] <slug>: <short description>"
+description: Wrong / missing data in a `worlds/<apworld>.json` entry (game name, IGDB id, version, URL, etc.)
+title: "[manifest] <apworld>: <short description>"
 labels: ["manifest"]
 body:
   - type: input
-    id: slug
+    id: apworld
     attributes:
-      label: Slug
+      label: APWorld
       description: Filename stem of the affected manifest under `worlds/`
       placeholder: "oot"
     validations:
@@ -38,5 +38,5 @@ body:
     attributes:
       label: Confirm
       options:
-        - label: I checked the live `worlds/<slug>.json` on main (not a stale fork or local copy)
+        - label: I checked the live `worlds/<apworld>.json` on main (not a stale fork or local copy)
           required: true

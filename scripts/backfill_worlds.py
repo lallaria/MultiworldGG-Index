@@ -1,7 +1,7 @@
 """Phase-1 backfill of worlds/*.json from a checked-out per-world archipelago.json snapshot.
 
-Reads every `<source>/worlds/<slug>/archipelago.json`, attaches the IGDB id from the
-historical game_details.json (when present), and writes a normalized `worlds/<slug>.json`
+Reads every `<source>/worlds/<apworld>/archipelago.json`, attaches the IGDB id from the
+historical game_details.json (when present), and writes a normalized `worlds/<apworld>.json`
 in the Index repo via `scripts.manifest.write_world_manifest`.
 
 Skips infrastructure worlds (`_*` prefix and `generic`) and worlds that don't have an
@@ -39,11 +39,11 @@ from manifest import (  # noqa: E402
 
 
 INFRA_PREFIX = "_"
-SKIP_SLUGS = {"generic"}
+SKIP_APWORLDS = {"generic"}
 
 
-def discover_slugs(source_root: Path) -> list[str]:
-    """Return slugs that have a `worlds/<slug>/archipelago.json` and are not infra."""
+def discover_apworlds(source_root: Path) -> list[str]:
+    """Return apworlds that have a `worlds/<apworld>/archipelago.json` and are not infra."""
     worlds_dir = source_root / "worlds"
     if not worlds_dir.is_dir():
         raise FileNotFoundError(f"{worlds_dir} does not exist")
@@ -51,25 +51,25 @@ def discover_slugs(source_root: Path) -> list[str]:
     for child in sorted(worlds_dir.iterdir()):
         if not child.is_dir():
             continue
-        slug = child.name
-        if slug.startswith(INFRA_PREFIX) or slug in SKIP_SLUGS:
+        apworld = child.name
+        if apworld.startswith(INFRA_PREFIX) or apworld in SKIP_APWORLDS:
             continue
         if (child / "archipelago.json").is_file():
-            out.append(slug)
+            out.append(apworld)
     return out
 
 
 def load_igdb_ids(igdb_data_path: Path) -> dict[str, int]:
-    """Read the historical game_details.json and return a `slug -> igdb_id` mapping."""
+    """Read the historical game_details.json and return a `apworld -> igdb_id` mapping."""
     with open(igdb_data_path, encoding="utf-8") as f:
         d = json.load(f)
     out: dict[str, int] = {}
-    for slug, meta in d.items():
+    for apworld, meta in d.items():
         igdb_id = meta.get("igdb_id")
         if igdb_id is None or igdb_id == "":
             continue
         try:
-            out[slug] = int(igdb_id)
+            out[apworld] = int(igdb_id)
         except (TypeError, ValueError):
             continue
     return out
@@ -83,32 +83,32 @@ def backfill(
     module_location_template: str = DEFAULT_MODULE_LOCATION_TEMPLATE,
     dry_run: bool = False,
 ) -> dict[str, str]:
-    """Run the backfill. Returns a mapping `slug -> status` where status is
+    """Run the backfill. Returns a mapping `apworld -> status` where status is
     "wrote", "skipped:no-archipelago-json", or "would-write" (dry-run).
     """
-    slugs = discover_slugs(source_root)
+    apworlds = discover_apworlds(source_root)
     igdb_ids = load_igdb_ids(igdb_data_path) if igdb_data_path else {}
 
     results: dict[str, str] = {}
-    for slug in slugs:
-        archipelago_json = source_root / "worlds" / slug / "archipelago.json"
+    for apworld in apworlds:
+        archipelago_json = source_root / "worlds" / apworld / "archipelago.json"
         try:
             src = read_archipelago_json(archipelago_json)
         except (FileNotFoundError, json.JSONDecodeError) as exc:
-            results[slug] = f"skipped:{type(exc).__name__}"
+            results[apworld] = f"skipped:{type(exc).__name__}"
             continue
-        igdb_id = igdb_ids.get(slug)
+        igdb_id = igdb_ids.get(apworld)
         manifest = add_world_metadata(
             src,
-            slug=slug,
+            apworld=apworld,
             igdb_id=igdb_id,
             module_location_template=module_location_template,
         )
         if dry_run:
-            results[slug] = "would-write"
+            results[apworld] = "would-write"
         else:
-            write_world_manifest(manifest, slug, output_dir)
-            results[slug] = "wrote"
+            write_world_manifest(manifest, apworld, output_dir)
+            results[apworld] = "wrote"
     return results
 
 
@@ -118,7 +118,7 @@ def _cli(argv: Optional[list[str]] = None) -> int:
         "--source",
         required=True,
         type=Path,
-        help="Path to a checkout of MultiworldGG (with worlds/<slug>/archipelago.json files)",
+        help="Path to a checkout of MultiworldGG (with worlds/<apworld>/archipelago.json files)",
     )
     parser.add_argument(
         "--output-dir",
@@ -130,7 +130,7 @@ def _cli(argv: Optional[list[str]] = None) -> int:
         "--igdb-data",
         type=Path,
         default=None,
-        help="Path to game_details.json containing slug->igdb_id mappings",
+        help="Path to game_details.json containing apworld->igdb_id mappings",
     )
     parser.add_argument(
         "--module-location-template",
@@ -152,10 +152,10 @@ def _cli(argv: Optional[list[str]] = None) -> int:
     skipped = sum(1 for s in results.values() if s.startswith("skipped"))
     print(f"{'(dry-run) ' if args.dry_run else ''}wrote {wrote}, skipped {skipped}")
     if skipped:
-        print("skipped slugs:")
-        for slug, status in sorted(results.items()):
+        print("skipped apworlds:")
+        for apworld, status in sorted(results.items()):
             if status.startswith("skipped"):
-                print(f"  {slug}: {status}")
+                print(f"  {apworld}: {status}")
     return 0
 
 

@@ -1,4 +1,4 @@
-"""IGDB PR-time lookup for a single slug.
+"""IGDB PR-time lookup for a single apworld.
 
 Runs only when Oliver has applied the "Needs IGDB id" label (the workflow
 trigger gates this). Reads the head manifest, searches IGDB for the `game`
@@ -137,7 +137,7 @@ def _write(path: str, text: str) -> None:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--slug", required=True)
+    ap.add_argument("--apworld", required=True)
     ap.add_argument("--head", required=True, help="path to the head-ref manifest")
     ap.add_argument("--output", required=True, help="path to write the markdown chunk")
     args = ap.parse_args()
@@ -146,13 +146,13 @@ def main() -> int:
 
     if not head_manifest:
         _write(args.output,
-               f"- ⚠️ **{args.slug}**: head manifest is empty or unreadable.\n")
+               f"- ⚠️ **{args.apworld}**: head manifest is empty or unreadable.\n")
         return 0
 
     game = head_manifest.get("game")
     if not isinstance(game, str) or not game.strip():
         _write(args.output,
-               f"- ⚠️ **{args.slug}**: manifest has no `game` field — fix that first, then re-add the label.\n")
+               f"- ⚠️ **{args.apworld}**: manifest has no `game` field — fix that first, then re-add the label.\n")
         return 0
 
     client_id = os.environ.get("IGDB_CLIENT_ID")
@@ -167,19 +167,19 @@ def main() -> int:
         candidates = igdb_search(client_id, token, game, limit=MAX_CANDIDATES * 2)
     except urllib.error.HTTPError as err:
         _write(args.output,
-               f"- ⚠️ **{args.slug}**: IGDB request failed ({err.code} {err.reason}). Retry by removing and re-applying the label.\n")
+               f"- ⚠️ **{args.apworld}**: IGDB request failed ({err.code} {err.reason}). Retry by removing and re-applying the label.\n")
         return 0
     except (urllib.error.URLError, json.JSONDecodeError, OSError) as err:
         _write(args.output,
-               f"- ⚠️ **{args.slug}**: IGDB request failed ({err.__class__.__name__}: {err}). Retry by removing and re-applying the label.\n")
+               f"- ⚠️ **{args.apworld}**: IGDB request failed ({err.__class__.__name__}: {err}). Retry by removing and re-applying the label.\n")
         return 0
 
     if not candidates:
         _write(args.output,
-               f"- ❓ **{args.slug}**: no IGDB matches for `{game}`. Search [IGDB](https://www.igdb.com/search) manually.\n")
+               f"- ❓ **{args.apworld}**: no IGDB matches for `{game}`. Search [IGDB](https://www.igdb.com/search) manually.\n")
         return 0
 
-    lines = [f"- ❓ **{args.slug}** (`{game}`):"]
+    lines = [f"- ❓ **{args.apworld}** (`{game}`):"]
     shown = 0
     for c in candidates:
         if shown >= MAX_CANDIDATES:
@@ -192,7 +192,7 @@ def main() -> int:
 
     if shown == 0:
         _write(args.output,
-               f"- ❓ **{args.slug}**: IGDB returned results for `{game}` but none had a usable game id. Search [IGDB](https://www.igdb.com/search) manually.\n")
+               f"- ❓ **{args.apworld}**: IGDB returned results for `{game}` but none had a usable game id. Search [IGDB](https://www.igdb.com/search) manually.\n")
         return 0
 
     _write(args.output, "\n".join(lines) + "\n")

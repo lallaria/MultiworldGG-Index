@@ -1,4 +1,4 @@
-"""Karen's 7-check security review for `worlds/<slug>.json` PRs.
+"""Karen's 7-check security review for `worlds/<apworld>.json` PRs.
 
 Karen is the default reviewer (via CODEOWNERS) for `worlds/*.json` updates in
 this Index repo. On every PR open/sync against `main`, the
@@ -6,7 +6,7 @@ this Index repo. On every PR open/sync against `main`, the
 manifest paths. Each manifest is run through 7 checks:
 
     1. schema               — JSON-Schema validation against schema/world_manifest.schema.json
-    2. manifest_consistency — slug = filename; URL slug matches; no duplicate keys
+    2. manifest_consistency — apworld = filename; URL apworld matches; no duplicate keys
     3. url_reachability     — module_location, repo_url, tracker respond
     4. size_sanity          — world dir size <= cap (overridable via --size-cap-mb)
     5. no_network_at_import — AST scan: no networking calls at module top level
@@ -107,7 +107,7 @@ class CheckResult:
 
 @dataclass
 class WorldReview:
-    slug: str
+    apworld: str
     manifest_path: str
     checks: list[CheckResult] = field(default_factory=list)
 
@@ -159,8 +159,8 @@ def check_schema(manifest_path: Path, schema_path: Path) -> CheckResult:
 
 
 def check_manifest_consistency(manifest_path: Path) -> CheckResult:
-    """Filename slug = manifest 'slug'; module_location URL slug matches; no duplicate keys."""
-    slug = manifest_path.stem
+    """Filename apworld = manifest 'apworld'; module_location URL apworld matches; no duplicate keys."""
+    apworld = manifest_path.stem
     raw = manifest_path.read_text(encoding="utf-8")
 
     duplicate_keys: list[str] = []
@@ -189,15 +189,15 @@ def check_manifest_consistency(manifest_path: Path) -> CheckResult:
             module_location,
         )
         if github_tree:
-            url_slug = github_tree.group(1)
-            if url_slug != slug:
+            url_apworld = github_tree.group(1)
+            if url_apworld != apworld:
                 issues.append(
-                    f"module_location URL slug '{url_slug}' != filename slug '{slug}'"
+                    f"module_location URL apworld '{url_apworld}' != filename apworld '{apworld}'"
                 )
 
-    if not re.match(r"^[a-z0-9_]+$", slug):
+    if not re.match(r"^[a-z0-9_]+$", apworld):
         issues.append(
-            f"slug '{slug}' should be lowercase alphanumeric + underscore"
+            f"apworld '{apworld}' should be lowercase alphanumeric + underscore"
         )
 
     if issues:
@@ -207,7 +207,7 @@ def check_manifest_consistency(manifest_path: Path) -> CheckResult:
             f"{len(issues)} issue(s)",
             details=issues,
         )
-    return CheckResult("manifest_consistency", "pass", "filename, URL slug, and JSON shape consistent")
+    return CheckResult("manifest_consistency", "pass", "filename, URL apworld, and JSON shape consistent")
 
 
 def _http_check(url: str) -> tuple[bool, str]:
@@ -620,8 +620,8 @@ def review_one(
     selected_checks: frozenset[str],
     lenient_urls: bool = False,
 ) -> WorldReview:
-    slug = manifest_path.stem
-    review = WorldReview(slug=slug, manifest_path=str(manifest_path))
+    apworld = manifest_path.stem
+    review = WorldReview(apworld=apworld, manifest_path=str(manifest_path))
 
     # Fast checks (no network / clone)
     if "schema" in selected_checks:
@@ -637,7 +637,7 @@ def review_one(
         return review
 
     # Try to fetch the world for the deeper checks.
-    world_dir = workdir / slug
+    world_dir = workdir / apworld
     fetched = False
     fetch_message = ""
     try:
@@ -710,12 +710,12 @@ def render_comment(run: ReviewRun) -> str:
         passed = [w for w in run.worlds if w.overall == "pass"]
         if passed:
             lines.append(f"{_STATUS_GLYPH['pass']} **{len(passed)} world(s) passed:** "
-                         + ", ".join(f"`{w.slug}`" for w in passed[:50])
+                         + ", ".join(f"`{w.apworld}`" for w in passed[:50])
                          + ("…" if len(passed) > 50 else ""))
             lines.append("")
 
     for w in detailed_worlds:
-        lines.append(f"### `worlds/{w.slug}.json` — {_STATUS_GLYPH[w.overall]} {w.overall}")
+        lines.append(f"### `worlds/{w.apworld}.json` — {_STATUS_GLYPH[w.overall]} {w.overall}")
         lines.append("")
         lines.append("| Check | Status | Notes |")
         lines.append("| --- | --- | --- |")
@@ -752,7 +752,7 @@ def render_summary(run: ReviewRun) -> dict:
         "overall": run.overall,
         "worlds": [
             {
-                "slug": w.slug,
+                "apworld": w.apworld,
                 "manifest_path": w.manifest_path,
                 "overall": w.overall,
                 "checks": [
@@ -776,7 +776,7 @@ def _cli(argv: Optional[list[str]] = None) -> int:
         "--changed",
         action="append",
         default=[],
-        help="Path to a changed manifest file (worlds/<slug>.json). Repeatable.",
+        help="Path to a changed manifest file (worlds/<apworld>.json). Repeatable.",
     )
     parser.add_argument(
         "--schema",
@@ -835,7 +835,7 @@ def _cli(argv: Optional[list[str]] = None) -> int:
         for raw in args.changed:
             manifest_path = Path(raw)
             if not manifest_path.is_file():
-                review = WorldReview(slug=manifest_path.stem, manifest_path=str(manifest_path))
+                review = WorldReview(apworld=manifest_path.stem, manifest_path=str(manifest_path))
                 review.checks.append(
                     CheckResult("schema", "fail", f"file not found: {manifest_path}")
                 )

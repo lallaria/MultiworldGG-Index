@@ -11,7 +11,7 @@ indirectly via the `mwgg_igdb` package, which is built from this repo.
 
 | Branch | Purpose |
 |---|---|
-| `main` | Per-world manifests live at `worlds/<slug>.json`. Schema + workflows + scripts live here too. PRs land here. |
+| `main` | Per-world manifests live at `worlds/<apworld>.json`. Schema + workflows + scripts live here too. PRs land here. |
 | `game_index_nr` | Orphan release branch — No Rating variant. |
 | `game_index_ao` | Orphan release branch — Adults Only variant. |
 | `game_index_twelve` | Orphan release branch — 12+ variant. |
@@ -65,14 +65,14 @@ upstream.
 Flow:
 
 1. Per-world repo cuts a release. Its `publish-to-index` Action opens a PR
-   here that updates exactly one `worlds/<slug>.json`.
+   here that updates exactly one `worlds/<apworld>.json`.
 2. `karen-pr-review.yml` runs Karen's 7-check security suite (manifest
    schema, lockfile sanity, sandboxed clone, bandit, pip-audit, size,
    AST surface). She posts a sticky review comment with the result.
 3. On all-green, Karen requests review from a human CODEOWNER. The
    `KAREN_HUMAN_REVIEWERS` org-secret list governs who that is.
 4. CODEOWNER approves and merges.
-5. `igdb-enrich.yml` keys off the merged `igdb_id`, fetches current IGDB
+5. `igdb-game-details.yml` keys off the merged `igdb_id`, fetches current IGDB
    metadata, and commits the result back to `main` under
    `output/igdb_enrichment.json` with `[skip ci]`.
 6. The next release run (`daily-release.yml`, currently
@@ -85,11 +85,11 @@ repos use `.github/PULL_REQUEST_TEMPLATE/manifest_update.md`.
 ## Repo contents
 
 - `worlds/` — one JSON manifest per world.
-- `schema/` — JSON Schema for `worlds/<slug>.json`.
+- `schema/` — JSON Schema for `worlds/<apworld>.json`.
 - `scripts/` — manifest validation, IGDB lookup, Karen's review logic,
   variant builder, backfill.
 - `output/` — IGDB enrichment cache (`igdb_enrichment.json`).
-- `.github/workflows/` — Karen review, IGDB enrich, daily release,
+- `.github/workflows/` — Karen review, IGDB game details, daily release,
   IGDB PR-time tag flow.
 - `dist/` — variant-build output (gitignored; produced by
   `daily-release.yml`).

@@ -1,7 +1,7 @@
 """Variant build for the MultiworldGG game-index orphan branches.
 
 Reads the per-world manifests (`worlds/*.json`) and the staged IGDB metadata
-(`output/igdb_enrichment.json`), merges them per-slug, applies the four age
+(`output/igdb_enrichment.json`), merges them per-apworld, applies the four age
 filters, and emits a complete pip-installable package per variant under
 `dist/<variant>/`. The daily-release workflow takes each `dist/<variant>/`
 directory and force-pushes its contents to the corresponding orphan branch
@@ -38,7 +38,7 @@ from pathlib import Path
 from typing import Iterable, Optional
 
 # All known age-rating tokens. Keep in lockstep with how upstream source data
-# tags games; the daily-release workflow flags slugs with unrecognized values.
+# tags games; the daily-release workflow flags apworlds with unrecognized values.
 KNOWN_RATINGS = {"MW", "3", "7", "12", "16", "18", "E", "T", "M", "NR", "AO"}
 
 VARIANT_FILTERS: dict[str, set[str]] = {
@@ -61,7 +61,7 @@ VARIANT_DESCRIPTIONS: dict[str, str] = {
 
 # IGDB-derived fields that come from the enrichment file. Anything not listed
 # here that the consumer expects to be on a GAMES_DATA entry must be sourced
-# from worlds/<slug>.json instead.
+# from worlds/<apworld>.json instead.
 ENRICHMENT_FIELDS = (
     "cover_url",
     "artwork_url",
@@ -78,7 +78,7 @@ ENRICHMENT_FIELDS = (
     "release_date",
 )
 
-# Defaults used when a slug is in worlds/ but missing from enrichment.
+# Defaults used when a apworld is in worlds/ but missing from enrichment.
 ENRICHMENT_DEFAULTS = {
     "cover_url": "",
     "artwork_url": "",
@@ -98,23 +98,23 @@ ENRICHMENT_DEFAULTS = {
 # Fields indexed for substring search. Mirrors the monorepo behavior.
 SEARCHABLE_FIELDS = {"igdb_name", "platforms", "genres", "themes", "keywords", "player_perspectives"}
 
-# Slugs always exposed as "popular".
-POPULAR_SLUGS = {"alttp", "sc2", "oot", "kh2", "hk", "sm64ex"}
+# APWorlds always exposed as "popular".
+POPULAR_APWORLDS = {"alttp", "sc2", "oot", "kh2", "hk", "sm64ex"}
 
 
 def load_world_manifests(worlds_dir: Path) -> dict[str, dict]:
-    """Read every `worlds/*.json` and return a `slug -> manifest` dict.
-    Slug = filename stem; the JSON content is the manifest."""
+    """Read every `worlds/*.json` and return a `apworld -> manifest` dict.
+    APWorld = filename stem; the JSON content is the manifest."""
     out: dict[str, dict] = {}
     for path in sorted(worlds_dir.glob("*.json")):
-        slug = path.stem
+        apworld = path.stem
         with open(path, encoding="utf-8") as f:
-            out[slug] = json.load(f)
+            out[apworld] = json.load(f)
     return out
 
 
 def load_enrichment(path: Path) -> dict[str, dict]:
-    """Read the staged IGDB enrichment file. Returns `slug -> metadata`."""
+    """Read the staged IGDB enrichment file. Returns `apworld -> metadata`."""
     if not path.exists():
         return {}
     with open(path, encoding="utf-8") as f:
@@ -132,8 +132,8 @@ def assemble_games_data(
     themes, platforms, storyline, keywords, release_date, module_location.
     """
     out: dict[str, dict] = {}
-    for slug, manifest in manifests.items():
-        e = enrichment.get(slug, {})
+    for apworld, manifest in manifests.items():
+        e = enrichment.get(apworld, {})
         entry: dict = {}
         # IGDB id: prefer manifest (authoritative), fall back to enrichment.
         igdb_id = manifest.get("igdb_id", e.get("igdb_id", ""))
@@ -143,11 +143,11 @@ def assemble_games_data(
         for field in ENRICHMENT_FIELDS:
             entry[field] = e.get(field, ENRICHMENT_DEFAULTS[field])
         # Display name: from the per-world manifest's `game` field.
-        entry["game_name"] = manifest.get("game", e.get("game_name", slug))
+        entry["game_name"] = manifest.get("game", e.get("game_name", apworld))
         # Source location for the world (new field, not in legacy GAMES_DATA).
         if "module_location" in manifest:
             entry["module_location"] = manifest["module_location"]
-        out[slug] = entry
+        out[apworld] = entry
     return out
 
 
@@ -155,26 +155,26 @@ def filter_for_variant(games_data: dict[str, dict], variant: str) -> dict[str, d
     """Return games_data restricted to the variant's allowed age ratings."""
     allowed = VARIANT_FILTERS[variant]
     return {
-        slug: data
-        for slug, data in games_data.items()
+        apworld: data
+        for apworld, data in games_data.items()
         if data.get("age_rating", "NR") in allowed
     }
 
 
-def _add_to_index(index: dict[str, set[str]], term: str, slug: str) -> None:
+def _add_to_index(index: dict[str, set[str]], term: str, apworld: str) -> None:
     term = "" if term is None else str(term).lower()
     if not term:
         return
-    index.setdefault(term, set()).add(slug)
+    index.setdefault(term, set()).add(apworld)
 
 
 def build_search_index(games_data: dict[str, dict]) -> dict[str, set[str]]:
-    """Generate the search index: term -> set of slugs.
+    """Generate the search index: term -> set of apworlds.
     Mirrors the monorepo logic, with a `popular` curated set seeded first."""
-    index: dict[str, set[str]] = {"popular": {s for s in POPULAR_SLUGS if s in games_data}}
+    index: dict[str, set[str]] = {"popular": {s for s in POPULAR_APWORLDS if s in games_data}}
     skip_pattern = re.compile(r".*[():].*")
-    for slug, data in games_data.items():
-        _add_to_index(index, data.get("game_name", ""), slug)
+    for apworld, data in games_data.items():
+        _add_to_index(index, data.get("game_name", ""), apworld)
         for field, value in data.items():
             if field not in SEARCHABLE_FIELDS:
                 continue
@@ -183,21 +183,21 @@ def build_search_index(games_data: dict[str, dict]) -> dict[str, set[str]]:
                     if not item or skip_pattern.match(str(item)):
                         continue
                     cleaned = str(item).lower()
-                    _add_to_index(index, cleaned, slug)
+                    _add_to_index(index, cleaned, apworld)
                     for word in cleaned.split():
-                        _add_to_index(index, word, slug)
+                        _add_to_index(index, word, apworld)
             elif isinstance(value, (str, int, float, bool)):
                 if value:
                     cleaned = str(value).lower()
-                    _add_to_index(index, cleaned, slug)
+                    _add_to_index(index, cleaned, apworld)
                     for word in cleaned.split():
-                        _add_to_index(index, word, slug)
+                        _add_to_index(index, word, apworld)
     return index
 
 
 def build_game_names(games_data: dict[str, dict]) -> dict[str, str]:
-    """Return `display_name -> slug` for every game."""
-    return {data["game_name"]: slug for slug, data in games_data.items() if data.get("game_name")}
+    """Return `display_name -> apworld` for every game."""
+    return {data["game_name"]: apworld for apworld, data in games_data.items() if data.get("game_name")}
 
 
 def render_template(
@@ -211,7 +211,7 @@ def render_template(
     game_names_str = json.dumps(game_names, indent=4, ensure_ascii=False)
     # The template represents search_index as Python sets; emit JSON list
     # syntax then convert [] -> {} so python eval-time parses as set literals.
-    search_index_serializable = {term: sorted(slugs) for term, slugs in search_index.items()}
+    search_index_serializable = {term: sorted(apworlds) for term, apworlds in search_index.items()}
     search_index_str = json.dumps(search_index_serializable, indent=4, ensure_ascii=False).replace("[", "{").replace("]", "}")
     return (
         template

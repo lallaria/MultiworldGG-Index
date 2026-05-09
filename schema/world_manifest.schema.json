@@ -2,13 +2,14 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "https://github.com/lallaria/MultiworldGG-Index/blob/main/schema/world_manifest.schema.json",
     "title": "MultiworldGG world manifest",
-    "description": "Validates worlds/<slug>.json on Index-repo PRs. Greg fails the PR if a manifest does not match this schema. The slug is the filename stem (e.g. 'oot' for 'worlds/oot.json'); it is not stored inside the document.",
+    "description": "Validates worlds/<apworld>.json on Index-repo PRs. Karen fails the PR if a manifest does not match this schema. The apworld is the filename stem (e.g. 'oot' for 'worlds/oot.json'); it is not stored inside the document.",
     "type": "object",
     "required": [
         "game",
+        "world_version",
         "module_location"
     ],
-    "additionalProperties": false,
+    "additionalProperties": true,
     "patternProperties": {
         "^_comment(_|$)": {
             "description": "Inline-comment fields, ignored by all consumers. Convention: '_comment_<field>' or '_comment'."
@@ -18,7 +19,7 @@
         "game": {
             "type": "string",
             "minLength": 1,
-            "description": "Display name shown to players. The lookup key game_name -> slug is built from this field."
+            "description": "Display name shown to players. The lookup key game_name -> apworld is built from this field."
         },
         "module_location": {
             "type": "string",
@@ -65,7 +66,7 @@
         "igdb_id": {
             "type": "integer",
             "minimum": 0,
-            "description": "IGDB game id. 0 means 'no IGDB entry' (e.g. for original worlds with no commercial counterpart). The igdb-enrich workflow keys off this on PR merge."
+            "description": "IGDB game id. 0 means 'no IGDB entry' (e.g. for original worlds with no commercial counterpart). The igdb-game-details workflow keys off this on PR merge."
         },
         "compatible_version": {
             "type": "integer",
@@ -99,11 +100,9 @@
             "uniqueItems": true,
             "items": {
                 "type": "string",
-                "enum": [
-                    "tracker_included"
-                ]
+                "minLength": 1
             },
-            "description": "Capability flags. Closed enum — adding a new flag requires updating this schema."
+            "description": "Free-form capability flags. Consumers ignore unknown values; adding a new flag does not require a schema change."
         },
         "changelog": {
             "type": "array",

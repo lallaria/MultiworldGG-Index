@@ -157,7 +157,7 @@ jobs:
       #
       # Clone the git repo referenced by the changed manifest's
       # `module_location` and run CodeQL's Python analysis against it.
-      # Results upload to the Security tab under `category: world/<slug>`
+      # Results upload to the Security tab under `category: world/<apworld>`
       # so they don't collide across PRs.
       #
       # Skipped when:
@@ -174,11 +174,11 @@ jobs:
         run: |
           set -euo pipefail
           manifest_path="$(head -n 1 karen-targets.txt)"
-          slug="$(basename "$manifest_path" .json)"
+          apworld="$(basename "$manifest_path" .json)"
           module_location="$(jq -r '.module_location // ""' "$manifest_path")"
 
           if ! echo "$module_location" | grep -qE '^git\+https://'; then
-            echo "::notice::Skipping CodeQL for ${slug}: module_location is not a git+https URL (got: ${module_location:0:60})"
+            echo "::notice::Skipping CodeQL for ${apworld}: module_location is not a git+https URL (got: ${module_location:0:60})"
             echo "has_source=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -209,7 +209,7 @@ jobs:
             src_root="world_src/${subdir}"
           fi
 
-          echo "slug=${slug}" >> "$GITHUB_OUTPUT"
+          echo "apworld=${apworld}" >> "$GITHUB_OUTPUT"
           echo "src_root=${src_root}" >> "$GITHUB_OUTPUT"
           echo "has_source=true" >> "$GITHUB_OUTPUT"
 
@@ -224,7 +224,7 @@ jobs:
         if: steps.world_clone.outputs.has_source == 'true'
         uses: github/codeql-action/analyze@v4.35.1
         with:
-          category: world/${{ steps.world_clone.outputs.slug }}
+          category: world/${{ steps.world_clone.outputs.apworld }}
 
       # ──────────────────────────────────────────────────────────────────────
       # Fuzzer (TODO #2b)
@@ -233,7 +233,7 @@ jobs:
       # `git+https://...` URL (i.e. shaped by Oliver's PR-opening flow against
       # a wheel branch + tag), clone MultiworldGG core, pip-install the
       # proposed wheel, drop Eijebong/Archipelago-fuzzer's fuzz.py at the
-      # checkout root, and run `python fuzz.py -r N -g <slug>` against the
+      # checkout root, and run `python fuzz.py -r N -g <apworld>` against the
       # proposed world. A non-zero exit fails the job, which gates the
       # "Karen approves" step below.
       #
@@ -284,16 +284,16 @@ jobs:
 
           while IFS= read -r manifest_path; do
             [ -z "$manifest_path" ] && continue
-            slug="$(basename "$manifest_path" .json)"
+            apworld="$(basename "$manifest_path" .json)"
             module_location="$(jq -r '.module_location // ""' "${GITHUB_WORKSPACE}/${manifest_path}")"
 
             if ! echo "$module_location" | grep -qE '^git\+https://'; then
-              echo "::notice::Skipping fuzz for ${slug}: module_location is not a pip-installable git+https URL (got: ${module_location:0:60}...)"
-              fuzz_summary+="- ${slug}: skipped (legacy module_location)\n"
+              echo "::notice::Skipping fuzz for ${apworld}: module_location is not a pip-installable git+https URL (got: ${module_location:0:60}...)"
+              fuzz_summary+="- ${apworld}: skipped (legacy module_location)\n"
               continue
             fi
 
-            echo "::group::Fuzz ${slug}"
+            echo "::group::Fuzz ${apworld}"
             workdir="$(mktemp -d)"
             (
               cd "$workdir"
@@ -324,14 +324,14 @@ jobs:
                 -o fuzz.py
 
               set +e
-              timeout 15m python fuzz.py -r "${fuzz_runs}" -t "${fuzz_timeout}" -g "${slug}" -j 2
+              timeout 15m python fuzz.py -r "${fuzz_runs}" -t "${fuzz_timeout}" -g "${apworld}" -j 2
               fuzz_exit=$?
               set -e
 
               # Capture artifacts regardless of outcome.
               if [ -d fuzz_output ]; then
-                mkdir -p "$GITHUB_WORKSPACE/fuzz_output_all/${slug}"
-                cp -r fuzz_output/. "$GITHUB_WORKSPACE/fuzz_output_all/${slug}/" 2>/dev/null || true
+                mkdir -p "$GITHUB_WORKSPACE/fuzz_output_all/${apworld}"
+                cp -r fuzz_output/. "$GITHUB_WORKSPACE/fuzz_output_all/${apworld}/" 2>/dev/null || true
               fi
 
               exit ${fuzz_exit}
@@ -341,9 +341,9 @@ jobs:
 
             if [ "${world_exit}" -ne 0 ]; then
               fuzz_overall=fail
-              fuzz_summary+="- ${slug}: ❌ fuzz failed (exit=${world_exit})\n"
+              fuzz_summary+="- ${apworld}: ❌ fuzz failed (exit=${world_exit})\n"
             else
-              fuzz_summary+="- ${slug}: ✅ fuzz passed\n"
+              fuzz_summary+="- ${apworld}: ✅ fuzz passed\n"
             fi
           done < karen-targets.txt
 
