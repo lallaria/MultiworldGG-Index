@@ -158,7 +158,7 @@ def main() -> int:
     client_id = os.environ.get("IGDB_CLIENT_ID")
     client_secret = os.environ.get("IGDB_CLIENT_SECRET")
     if not client_id or not client_secret:
-        # Hard error: the workflow is gated on the igdb_gather environment, so
+        # Hard error: the workflow is gated on the igdb_env environment, so
         # missing creds means the environment is misconfigured.
         raise SystemExit("IGDB_CLIENT_ID/IGDB_CLIENT_SECRET not set in env.")
 

@@ -37,10 +37,10 @@ jobs:
   game-details:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    # Pulls IGDB_CLIENT_ID / IGDB_CLIENT_SECRET from the `igdb_gather`
+    # Pulls IGDB_CLIENT_ID / IGDB_CLIENT_SECRET from the `igdb_env`
     # environment, which is restricted to the `main` branch. PR runs and
     # feature-branch dispatches cannot reach the secrets.
-    environment: igdb_gather
+    environment: igdb_env
 
     steps:
       - name: Checkout main

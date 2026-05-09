@@ -484,7 +484,7 @@ jobs:
       # ──────────────────────────────────────────────────────────────────────
       # Tag the PR head as `igdb-pr-<number>` if the PR carries the
       # "Needs IGDB id" label. The tag is what gets the run into the
-      # `igdb_gather` deployment-branch policy on the environment side, so
+      # `igdb_env` deployment-branch policy on the environment side, so
       # igdb-pr-lookup.yml can mint IGDB credentials and post candidates.
       #
       # Karen is exempt from the org's tag-creation ruleset (push-time block

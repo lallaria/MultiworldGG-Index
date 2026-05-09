@@ -3,7 +3,7 @@ name: IGDB PR-time lookup
 # Triggered when Karen pushes an `igdb-pr-<number>` tag at the PR head SHA.
 # Karen does this in karen-pr-review.yml when she sees the `Needs IGDB id`
 # label (which Oliver applies at PR-open time when the merged manifest lacks
-# igdb_id). The tag → environment plumbing exists because the `igdb_gather`
+# igdb_id). The tag → environment plumbing exists because the `igdb_env`
 # environment's deployment-branch policy includes `igdb-*` tags but NOT
 # arbitrary PR branches; running on the tagged ref is what unlocks the IGDB
 # credentials.
@@ -29,7 +29,7 @@ jobs:
   lookup:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    environment: igdb_gather
+    environment: igdb_env
 
     steps:
       - name: Derive PR number from tag
