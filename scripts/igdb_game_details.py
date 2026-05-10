@@ -1,7 +1,7 @@
-"""IGDB enrichment for the MultiworldGG-Index repo.
+"""IGDB game details for the MultiworldGG-Index repo.
 
 Reads `worlds/<apworld>.json` for one or more apworlds, queries IGDB for the matching
-game's metadata, and updates `output/igdb_enrichment.json` in place. Existing
+game's metadata, and updates `output/igdb_game_details.json` in place. Existing
 entries for unaffected apworlds are preserved.
 
 Triggered by `.github/workflows/igdb-game-details.yml` on every push to `main` that
@@ -10,11 +10,11 @@ touches `worlds/*.json`. Can also be run locally:
     IGDB_CLIENT_ID=... IGDB_CLIENT_SECRET=... \\
         python scripts/igdb_game_details.py --apworld oot --apworld alttp
 
-    # Re-enrich every world (slow, hits rate limits — use sparingly):
+    # Re-fetch game details for every world (slow, hits rate limits — use sparingly):
     IGDB_CLIENT_ID=... IGDB_CLIENT_SECRET=... \\
         python scripts/igdb_game_details.py --all
 
-Adapted from the original `tools/game_indexing/igdb.py` in the monorepo, with
+Adapted from the original `tools/game_indexing/igdb.py` in the MultiworldGG alpha client, with
 file-based credential / token caching replaced by environment variables and
 the manifest-walking removed (the Index repo's `worlds/<apworld>.json` is the
 canonical input now, not the per-world `archipelago.json`).
@@ -36,11 +36,11 @@ from typing import Iterable, Optional
 IGDB_TOKEN_URL = "https://id.twitch.tv/oauth2/token"
 IGDB_GAMES_URL = "https://api.igdb.com/v4/games"
 
-USER_AGENT = "MultiworldGG-Index-IGDB-Enrich/1.0"
+USER_AGENT = "MultiworldGG-Index-IGDB-Game-Details/1.0"
 
 # Fields a single IGDB row needs to populate, matching what build_variants.py
-# reads from output/igdb_enrichment.json.
-ENRICHMENT_FIELDS = (
+# reads from output/igdb_game_details.json.
+GAME_DETAILS_FIELDS = (
     "igdb_id",
     "cover_url",
     "artwork_url",
@@ -63,7 +63,7 @@ ENRICHMENT_FIELDS = (
 # better tagging mechanism exists.
 AO_NAME_HINTS = ("hunie")
 
-# Default enrichment row for original / hint worlds (igdb_id == 0 or missing).
+# Default game details row for original / hint worlds (igdb_id == 0 or missing).
 DEFAULT_ORIGINAL_WORLD_ENTRY = {
     "igdb_id": "",
     "cover_url": "",
@@ -220,7 +220,7 @@ def build_entry_for_apworld(
     client_id: str,
     token: str,
 ) -> dict:
-    """Return the enrichment row for one apworld, matching ENRICHMENT_FIELDS."""
+    """Return the game details row for one apworld, matching GAME_DETAILS_FIELDS."""
     game_name = manifest.get("game", "")
     igdb_id = manifest.get("igdb_id", 0)
     if not igdb_id:
@@ -274,14 +274,14 @@ def load_manifest(worlds_dir: Path, apworld: str) -> Optional[dict]:
         return json.load(f)
 
 
-def load_enrichment(path: Path) -> dict:
+def load_game_details(path: Path) -> dict:
     if not path.is_file():
         return {}
     with open(path, encoding="utf-8") as f:
         return json.load(f)
 
 
-def write_enrichment(path: Path, data: dict) -> None:
+def write_game_details(path: Path, data: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(dict(sorted(data.items())), f, indent=4, ensure_ascii=False)
@@ -292,15 +292,15 @@ def game_details(
     apworlds: Iterable[str],
     *,
     worlds_dir: Path,
-    enrichment_path: Path,
+    game_details_path: Path,
     client_id: str,
     client_secret: str,
     sleep_between: float = 0.25,
     dry_run: bool = False,
 ) -> dict[str, str]:
-    """Enrich the given apworlds. Returns a `apworld -> status` mapping for the report."""
+    """Fetch game details for the given apworlds. Returns a `apworld -> status` mapping for the report."""
     token = get_access_token(client_id, client_secret)
-    enrichment = load_enrichment(enrichment_path)
+    game_details = load_game_details(game_details_path)
     statuses: dict[str, str] = {}
     changed = False
 
@@ -316,30 +316,30 @@ def game_details(
         except (urllib.error.HTTPError, urllib.error.URLError) as exc:
             statuses[apworld] = f"failed:{exc}"
             continue
-        old_entry = enrichment.get(apworld)
+        old_entry = game_details.get(apworld)
         if old_entry == new_entry:
             statuses[apworld] = "unchanged"
         else:
-            enrichment[apworld] = new_entry
+            game_details[apworld] = new_entry
             changed = True
             statuses[apworld] = "updated" if old_entry is not None else "added"
         # Be polite to IGDB.
         time.sleep(sleep_between)
 
     if changed and not dry_run:
-        write_enrichment(enrichment_path, enrichment)
+        write_game_details(game_details_path, game_details)
     return statuses
 
 
 def _cli(argv: Optional[list[str]] = None) -> int:
-    parser = argparse.ArgumentParser(description="Enrich worlds with IGDB metadata.")
+    parser = argparse.ArgumentParser(description="Fetch game details for the given apworlds.")
     parser.add_argument(
-        "--apworld", action="append", default=[], help="APWorld to enrich. Repeatable."
+        "--apworld", action="append", default=[], help="APWorld to fetch game details for. Repeatable."
     )
-    parser.add_argument("--all", action="store_true", help="Enrich every apworld under --worlds-dir")
+    parser.add_argument("--all", action="store_true", help="Fetch game details for every apworld under --worlds-dir")
     parser.add_argument("--worlds-dir", type=Path, default=Path("worlds"))
     parser.add_argument(
-        "--enrichment-path", type=Path, default=Path("output/igdb_enrichment.json")
+        "--game-details-path", type=Path, default=Path("output/igdb_game_details.json")
     )
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(argv)
@@ -365,7 +365,7 @@ def _cli(argv: Optional[list[str]] = None) -> int:
     statuses = game_details(
         apworlds,
         worlds_dir=args.worlds_dir,
-        enrichment_path=args.enrichment_path,
+        game_details_path=args.game_details_path,
         client_id=client_id,
         client_secret=client_secret,
         dry_run=args.dry_run,

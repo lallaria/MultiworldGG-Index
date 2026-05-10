@@ -93,7 +93,7 @@ Flow:
 4. CODEOWNER approves and merges.
 5. `igdb-game-details.yml` keys off the merged `igdb_id`, fetches current IGDB
    metadata, and commits the result back to `main` under
-   `output/igdb_enrichment.json` with `[skip ci]`.
+   `output/igdb_game_details.json` with `[skip ci]`.
 6. The next release run (`daily-release.yml`, currently
    `workflow_dispatch`-only) rebuilds the four orphan branches and tags.
 
@@ -107,7 +107,7 @@ repos use `.github/PULL_REQUEST_TEMPLATE/manifest_update.md`.
 - `schema/` — JSON Schema for `worlds/<apworld>.json`.
 - `scripts/` — manifest validation, IGDB lookup, Karen's review logic,
   variant builder, backfill.
-- `output/` — IGDB enrichment cache (`igdb_enrichment.json`).
+- `output/` — IGDB game details cache (`igdb_game_details.json`).
 - `.github/workflows/` — Karen review, IGDB game details, daily release,
   IGDB PR-time tag flow.
 - `dist/` — variant-build output (gitignored; produced by

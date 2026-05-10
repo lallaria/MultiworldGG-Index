@@ -1,7 +1,7 @@
 """Variant build for the MultiworldGG game-index orphan branches.
 
 Reads the per-world manifests (`worlds/*.json`) and the staged IGDB metadata
-(`output/igdb_enrichment.json`), merges them per-apworld, applies the four age
+(`output/igdb_game_details.json`), merges them per-apworld, applies the four age
 filters, and emits a complete pip-installable package per variant under
 `dist/<variant>/`. The daily-release workflow takes each `dist/<variant>/`
 directory and force-pushes its contents to the corresponding orphan branch
@@ -16,7 +16,7 @@ installed.
 Run from the Index repo root:
 
     python scripts/build_variants.py [--worlds-dir worlds] \\
-                                     [--enrichment output/igdb_enrichment.json] \\
+                                     [--game_details output/igdb_game_details.json] \\
                                      [--template scripts/game_index_template.py] \\
                                      [--out-dir dist] \\
                                      [--version YYYY.MM.DD] \\
@@ -31,6 +31,7 @@ from __future__ import annotations
 import argparse
 import datetime
 import json
+import pprint
 import re
 import shutil
 import sys
@@ -59,10 +60,10 @@ VARIANT_DESCRIPTIONS: dict[str, str] = {
     "twelve": "MultiworldGG game index — 12+ variant",
 }
 
-# IGDB-derived fields that come from the enrichment file. Anything not listed
+# IGDB-derived fields that come from the game details file. Anything not listed
 # here that the consumer expects to be on a GAMES_DATA entry must be sourced
 # from worlds/<apworld>.json instead.
-ENRICHMENT_FIELDS = (
+GAME_DETAILS_FIELDS = (
     "cover_url",
     "artwork_url",
     "key_art_url",
@@ -78,13 +79,13 @@ ENRICHMENT_FIELDS = (
     "release_date",
 )
 
-# Defaults used when a apworld is in worlds/ but missing from enrichment.
-ENRICHMENT_DEFAULTS = {
+# Defaults used when a apworld is in worlds/ but missing from game details.
+GAME_DETAILS_DEFAULTS = {
     "cover_url": "",
     "artwork_url": "",
     "key_art_url": "",
     "igdb_name": "",
-    "age_rating": "NR",
+    "age_rating": "NR", # TODO: add 'MW' for original / hint worlds
     "rating": [],
     "player_perspectives": [],
     "genres": [],
@@ -92,7 +93,7 @@ ENRICHMENT_DEFAULTS = {
     "platforms": [],
     "storyline": "",
     "keywords": [],
-    "release_date": None,
+    "release_date": "",
 }
 
 # Fields indexed for substring search. Mirrors the monorepo behavior.
@@ -113,8 +114,8 @@ def load_world_manifests(worlds_dir: Path) -> dict[str, dict]:
     return out
 
 
-def load_enrichment(path: Path) -> dict[str, dict]:
-    """Read the staged IGDB enrichment file. Returns `apworld -> metadata`."""
+def load_game_details(path: Path) -> dict[str, dict]:
+    """Read the staged IGDB game details file. Returns `apworld -> metadata`."""
     if not path.exists():
         return {}
     with open(path, encoding="utf-8") as f:
@@ -123,9 +124,9 @@ def load_enrichment(path: Path) -> dict[str, dict]:
 
 def assemble_games_data(
     manifests: dict[str, dict],
-    enrichment: dict[str, dict],
+    game_details: dict[str, dict],
 ) -> dict[str, dict]:
-    """Merge per-world manifests with IGDB enrichment into the GAMES_DATA shape.
+    """Merge per-world manifests with IGDB game details into the GAMES_DATA shape.
 
     Each output entry contains: igdb_id, cover_url, artwork_url, key_art_url,
     game_name, igdb_name, age_rating, rating, player_perspectives, genres,
@@ -133,15 +134,15 @@ def assemble_games_data(
     """
     out: dict[str, dict] = {}
     for apworld, manifest in manifests.items():
-        e = enrichment.get(apworld, {})
+        e = game_details.get(apworld, {})
         entry: dict = {}
-        # IGDB id: prefer manifest (authoritative), fall back to enrichment.
+        # IGDB id: prefer manifest (authoritative), fall back to game details.
         igdb_id = manifest.get("igdb_id", e.get("igdb_id", ""))
         # Coerce to string for backward compat with existing GAMES_DATA shape.
         entry["igdb_id"] = str(igdb_id) if igdb_id not in (None, "") else ""
         # IGDB-derived fields.
-        for field in ENRICHMENT_FIELDS:
-            entry[field] = e.get(field, ENRICHMENT_DEFAULTS[field])
+        for field in GAME_DETAILS_FIELDS:
+            entry[field] = e.get(field, GAME_DETAILS_DEFAULTS[field])
         # Display name: from the per-world manifest's `game` field.
         entry["game_name"] = manifest.get("game", e.get("game_name", apworld))
         # Source location for the world (new field, not in legacy GAMES_DATA).
@@ -200,6 +201,25 @@ def build_game_names(games_data: dict[str, dict]) -> dict[str, str]:
     return {data["game_name"]: apworld for apworld, data in games_data.items() if data.get("game_name")}
 
 
+def _python_literal(value: object) -> str:
+    return pprint.pformat(value, indent=4, width=120, sort_dicts=False)
+
+
+def _python_set_literal(values: Iterable[str]) -> str:
+    items = sorted(values)
+    if not items:
+        return "set()"
+    return "{" + ", ".join(_python_literal(item) for item in items) + "}"
+
+
+def _format_search_index(search_index: dict[str, set[str]]) -> str:
+    lines = ["{"]
+    for term, apworlds in search_index.items():
+        lines.append(f"    {_python_literal(term)}: {_python_set_literal(apworlds)},")
+    lines.append("}")
+    return "\n".join(lines)
+
+
 def render_template(
     template_path: Path,
     games_data: dict[str, dict],
@@ -207,12 +227,9 @@ def render_template(
     search_index: dict[str, set[str]],
 ) -> str:
     template = template_path.read_text(encoding="utf-8")
-    games_data_str = json.dumps(games_data, indent=4, ensure_ascii=False)
-    game_names_str = json.dumps(game_names, indent=4, ensure_ascii=False)
-    # The template represents search_index as Python sets; emit JSON list
-    # syntax then convert [] -> {} so python eval-time parses as set literals.
-    search_index_serializable = {term: sorted(apworlds) for term, apworlds in search_index.items()}
-    search_index_str = json.dumps(search_index_serializable, indent=4, ensure_ascii=False).replace("[", "{").replace("]", "}")
+    games_data_str = _python_literal(games_data)
+    game_names_str = _python_literal(game_names)
+    search_index_str = _format_search_index(search_index)
     return (
         template
         .replace("GAMES_DATA_PLACEHOLDER", games_data_str)
@@ -252,7 +269,7 @@ on each push as `{variant}-YYYY-MM-DD`.
 Install with:
 
 ```
-pip install git+ssh://git@github.com/lallaria/MultiworldGG-Index@game_index_{variant}
+pip install git+ssh://git@github.com/MultiworldGG/MultiworldGG-Index@game_index_{variant}
 ```
 
 The package exports a `_GameIndexClass` singleton at `mwgg_igdb.GameIndex`.
@@ -293,15 +310,15 @@ def build_one_variant(
 def build_all(
     *,
     worlds_dir: Path,
-    enrichment_path: Path,
+    game_details_path: Path,
     template_path: Path,
     out_dir: Path,
     version: str,
     variants: Optional[Iterable[str]] = None,
 ) -> list[dict]:
     manifests = load_world_manifests(worlds_dir)
-    enrichment = load_enrichment(enrichment_path)
-    games_data = assemble_games_data(manifests, enrichment)
+    game_details = load_game_details(game_details_path)
+    games_data = assemble_games_data(manifests, game_details)
 
     selected = list(variants) if variants else list(VARIANT_FILTERS.keys())
     out: list[dict] = []
@@ -326,7 +343,7 @@ def _today_version() -> str:
 def _cli(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Build all four variant orphan-branch packages from worlds/*.json.")
     parser.add_argument("--worlds-dir", type=Path, default=Path("worlds"))
-    parser.add_argument("--enrichment", type=Path, default=Path("output/igdb_enrichment.json"))
+    parser.add_argument("--game-details", type=Path, default=Path("output/igdb_game_details.json"))
     parser.add_argument("--template", type=Path, default=Path("scripts/game_index_template.py"))
     parser.add_argument("--out-dir", type=Path, default=Path("dist"))
     parser.add_argument("--version", default=None, help="Package version, default: today's UTC date YYYY.MM.DD")
@@ -337,7 +354,7 @@ def _cli(argv: Optional[list[str]] = None) -> int:
     variants = [args.variant] if args.variant else None
     results = build_all(
         worlds_dir=args.worlds_dir,
-        enrichment_path=args.enrichment,
+        game_details_path=args.game_details,
         template_path=args.template,
         out_dir=args.out_dir,
         version=version,

@@ -25,6 +25,6 @@ scripts/                                @lallaria
 # CI definitions and repo meta.
 .github/                                @lallaria
 
-# IGDB enrichment data is updated by the igdb-game-details.yml bot on every merge;
+# IGDB game details data is updated by the igdb-game-details.yml bot on every merge;
 # owner reviews any out-of-band human edits.
-output/igdb_enrichment.json             @lallaria
+output/igdb_game_details.json             @lallaria

@@ -2,7 +2,7 @@ name: IGDB game details on merge
 
 # Runs after a PR merges to main. For each `worlds/<apworld>.json` that the merge
 # commit added or modified, hits IGDB for current metadata and updates the
-# apworld's row in `output/igdb_game details.json`. Commits the diff back to main
+# apworld's row in `output/igdb_game_details.json`. Commits the diff back to main
 # with `[skip ci]` so the daily-release / Karen workflows don't re-trigger.
 #
 # Manual run: workflow_dispatch with optional --apworld input.
@@ -113,7 +113,7 @@ jobs:
           fi
 
           python scripts/igdb_game_details.py "${args[@]}" \
-            --game details-path output/igdb_game details.json \
+            --game details-path output/igdb_game_details.json \
             --worlds-dir worlds
 
       - name: Commit game details back to main
@@ -125,12 +125,12 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          if git diff --quiet output/igdb_game details.json; then
-            echo "no changes to igdb_game details.json"
+          if git diff --quiet output/igdb_game_details.json; then
+            echo "no changes to igdb_game_details.json"
             exit 0
           fi
 
-          git add output/igdb_game details.json
+          git add output/igdb_game_details.json
           git commit -m "chore(igdb): refresh game details [skip ci]" \
                      -m "Triggered by ${{ github.event_name }} on ${{ github.sha }}."
           git push origin HEAD:main

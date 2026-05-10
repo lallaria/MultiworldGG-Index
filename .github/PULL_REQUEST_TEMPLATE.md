@@ -20,9 +20,9 @@ For human-written PRs (schema, scripts, workflows, infra), fill in below.
 
 - [ ] `worlds/*.json` (one or more manifests — Karen validates)
 - [ ] `schema/world_manifest.schema.json` (changing the schema re-validates ALL manifests)
-- [ ] `scripts/` (build / enrichment / Karen pipeline)
+- [ ] `scripts/` (build / game details / Karen pipeline)
 - [ ] `.github/workflows/` (CI)
-- [ ] `output/igdb_enrichment.json` (manual edit — usually done by `igdb-game-details.yml`)
+- [ ] `output/igdb_game_details.json` (manual edit — usually done by `igdb-game-details.yml`)
 - [ ] Other / docs
 
 ## Test plan
