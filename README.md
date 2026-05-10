@@ -43,12 +43,31 @@ game names or metadata to under-18 users.
 ## Per-world manifest schema
 
 Source of truth: [`schema/world_manifest.schema.json`](schema/world_manifest.schema.json)
-(JSON Schema Draft 2020-12, strict `additionalProperties: false`).
+(JSON Schema Draft 2020-12). The schema is **intentionally loose**:
+`additionalProperties: true`. Required fields are validated; everything
+else passes through verbatim.
 
-Required: `game`, `module_location`.
-Optional: `world_version`, `world_version_full`, `minimum_ap_version`,
-`authors`, `contributors`, `igdb_id`, `compatible_version`, `version`,
+**Required:** `game`, `world_version`, `module_location`.
+
+**Well-known optional fields**: `minimum_ap_version`, `authors`,
+`contributors`, `igdb_id`, `compatible_version`, `version`,
 `build_version`, `repo_url`, `tracker`, `flags`, `changelog`.
+
+**Any other JSON-valid field is allowed** and will round-trip onto the
+orphan branches unchanged. To surface a new field at runtime in the
+`mwgg_igdb` package, extend `assemble_games_data()` in
+[`scripts/build_variants.py`](scripts/build_variants.py) — no schema
+change needed.
+
+**Well-known flags** (`flags` is a free-form list of strings; consumers
+ignore unknown values):
+
+- `in_client` — declares that this world ships an in-game client
+  component. The MultiworldGG monorepo's `tools/regen_inno_components.py`
+  reads this flag to decide which worlds appear in the Inno installer's
+  per-world component list.
+- `tracker_included` — declares that this world ships an in-tree
+  tracker. Surfaced by the launcher's tracker chooser.
 
 Inline-comment fields matching `^_comment(_|$)` are ignored.
 
