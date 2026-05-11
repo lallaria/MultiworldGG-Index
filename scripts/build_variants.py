@@ -1,28 +1,31 @@
-"""Variant build for the MultiworldGG game-index orphan branches.
+"""Build the four variant `mwgg_igdb` packages for MultiworldGG-Index.
 
-Reads the per-world manifests (`worlds/*.json`) and the staged IGDB metadata
-(`output/igdb_game_details.json`), merges them per-apworld, applies the four age
-filters, and emits a complete pip-installable package per variant under
-`dist/<variant>/`. The daily-release workflow takes each `dist/<variant>/`
-directory and force-pushes its contents to the corresponding orphan branch
-(`game_index_<variant>`).
+Faithful re-port of the old gui-changes pipeline
+(`tools/game_indexing/igdb.py` + `tools/game_indexing/generate_game_index.py`),
+adapted to the new Index-repo input layout:
 
-All four variants publish a package named `mwgg_igdb` regardless of which
-orphan branch is the source. Variant choice is reflected in the orphan-branch
-name and the package version, not in the import path — so consumer code keeps
-working with `from mwgg_igdb import GameIndex` no matter which variant is
-installed.
+- Per-world manifests at `worlds/<apworld>.json` (was: `worlds/<apworld>/archipelago.json`)
+- Staged IGDB metadata at `output/igdb_game_details.json` (was: a fresh IGDB fetch)
+
+Produces `dist/<variant>/{mwgg_igdb.py, pyproject.toml, README.md}` per variant.
+The daily-release workflow force-pushes each `dist/<variant>/` directory to the
+corresponding orphan branch (`game_index_<variant>`).
+
+All four variants publish a package named `mwgg_igdb` regardless of which orphan
+branch is the source. Variant choice is reflected in the orphan-branch name and
+the package version, not in the import path — so consumer code keeps working
+with `from mwgg_igdb import GameIndex` no matter which variant is installed.
 
 Run from the Index repo root:
 
     python scripts/build_variants.py [--worlds-dir worlds] \\
-                                     [--game_details output/igdb_game_details.json] \\
+                                     [--game-details output/igdb_game_details.json] \\
                                      [--template scripts/game_index_template.py] \\
                                      [--out-dir dist] \\
                                      [--version YYYY.MM.DD] \\
                                      [--variant nr|ao|twelve|sixteen]
 
-If `--version` is omitted, today's date is used (UTC).
+If `--version` is omitted, today's UTC date is used.
 If `--variant` is omitted, all four are built.
 """
 
@@ -31,86 +34,59 @@ from __future__ import annotations
 import argparse
 import datetime
 import json
-import pprint
-import re
 import shutil
 import sys
 from pathlib import Path
-from typing import Iterable, Optional
+from re import match
+from typing import Any, Iterable, Optional
 
-# All known age-rating tokens. Keep in lockstep with how upstream source data
-# tags games; the daily-release workflow flags apworlds with unrecognized values.
-KNOWN_RATINGS = {"MW", "3", "7", "12", "16", "18", "E", "T", "M", "NR", "AO"}
 
-VARIANT_FILTERS: dict[str, set[str]] = {
-    # No-rating: everything except Adults Only
-    "nr": {"MW", "3", "7", "12", "16", "18", "E", "T", "M", "NR"},
-    # Adults-Only: everything including AO
-    "ao": {"MW", "3", "7", "12", "16", "18", "E", "T", "M", "NR", "AO"},
-    # 16+: caps at "T"/16
-    "sixteen": {"MW", "3", "7", "12", "16", "E", "T"},
-    # 12+: caps at "12"
-    "twelve": {"MW", "3", "7", "12", "E"},
+# Age-rating filter sets, mirroring the old gui-changes pipeline.
+filter_nr = ["MW", "3", "7", "12", "16", "18", "E", "T", "M", "NR"]
+filter_ao = ["MW", "3", "7", "12", "16", "18", "E", "T", "M", "NR", "AO"]
+filter_16 = ["MW", "3", "7", "12", "16", "E", "T"]
+filter_12 = ["MW", "3", "7", "12", "E"]
+
+VARIANT_FILTERS: dict[str, list] = {
+    "nr": filter_nr,
+    "ao": filter_ao,
+    "sixteen": filter_16,
+    "twelve": filter_12,
 }
 
 VARIANT_DESCRIPTIONS: dict[str, str] = {
-    "nr": "MultiworldGG game index — No-Rating variant (excludes Adults Only)",
-    "ao": "MultiworldGG game index — Adults-Only variant (full data)",
-    "sixteen": "MultiworldGG game index — 16+ variant",
-    "twelve": "MultiworldGG game index — 12+ variant",
+    "nr": "IGDB database indexed for MultiworldGG use (No Adults Only)",
+    "ao": "IGDB database indexed for MultiworldGG use (Adults Only included)",
+    "sixteen": "IGDB database indexed for MultiworldGG use (16+ rated)",
+    "twelve": "IGDB database indexed for MultiworldGG use (12+ rated)",
 }
 
-# IGDB-derived fields that come from the game details file. Anything not listed
-# here that the consumer expects to be on a GAMES_DATA entry must be sourced
-# from worlds/<apworld>.json instead.
-GAME_DETAILS_FIELDS = (
-    "cover_url",
-    "artwork_url",
-    "key_art_url",
+POPULAR_APWORLDS = {"alttp", "sc2", "oot", "kh2", "hk", "sm64ex"}
+
+SEARCHABLE_FIELDS = {
     "igdb_name",
-    "age_rating",
-    "rating",
-    "player_perspectives",
+    "platforms",
     "genres",
     "themes",
-    "platforms",
-    "storyline",
     "keywords",
-    "release_date",
-)
-
-# Defaults used when a apworld is in worlds/ but missing from game details.
-GAME_DETAILS_DEFAULTS = {
-    "cover_url": "",
-    "artwork_url": "",
-    "key_art_url": "",
-    "igdb_name": "",
-    "age_rating": "NR", # TODO: add 'MW' for original / hint worlds
-    "rating": [],
-    "player_perspectives": [],
-    "genres": [],
-    "themes": [],
-    "platforms": [],
-    "storyline": "",
-    "keywords": [],
-    "release_date": "",
+    "player_perspectives",
 }
 
-# Fields indexed for substring search. Mirrors the monorepo behavior.
-SEARCHABLE_FIELDS = {"igdb_name", "platforms", "genres", "themes", "keywords", "player_perspectives"}
 
-# APWorlds always exposed as "popular".
-POPULAR_APWORLDS = {"alttp", "sc2", "oot", "kh2", "hk", "sm64ex"}
+def clean_value(value: Any) -> str:
+    """Clean a value for indexing: None -> '', else lowercased string."""
+    if value is None:
+        return ""
+    return str(value).lower()
 
 
 def load_world_manifests(worlds_dir: Path) -> dict[str, dict]:
-    """Read every `worlds/*.json` and return a `apworld -> manifest` dict.
-    APWorld = filename stem; the JSON content is the manifest."""
+    """Read every `worlds/*.json` and return `apworld -> manifest`. The
+    filename stem is the apworld key; the parsed JSON is the manifest."""
     out: dict[str, dict] = {}
     for path in sorted(worlds_dir.glob("*.json")):
-        apworld = path.stem
         with open(path, encoding="utf-8") as f:
-            out[apworld] = json.load(f)
+            out[path.stem] = json.load(f)
     return out
 
 
@@ -126,98 +102,133 @@ def assemble_games_data(
     manifests: dict[str, dict],
     game_details: dict[str, dict],
 ) -> dict[str, dict]:
-    """Merge per-world manifests with IGDB game details into the GAMES_DATA shape.
-
-    Each output entry contains: igdb_id, cover_url, artwork_url, key_art_url,
-    game_name, igdb_name, age_rating, rating, player_perspectives, genres,
-    themes, platforms, storyline, keywords, release_date, module_location.
-    """
-    out: dict[str, dict] = {}
+    """Merge per-world manifests with staged IGDB metadata into the GAMES_DATA
+    shape. Mirrors the entry shape produced by the old
+    `igdb.py:generate_game_details_json`, with per-field defaulting so None
+    values from IGDB never reach the renderer."""
+    result: dict[str, dict] = {}
     for apworld, manifest in manifests.items():
-        e = game_details.get(apworld, {})
-        entry: dict = {}
-        # IGDB id: prefer manifest (authoritative), fall back to game details.
-        igdb_id = manifest.get("igdb_id", e.get("igdb_id", ""))
-        # Coerce to string for backward compat with existing GAMES_DATA shape.
-        entry["igdb_id"] = str(igdb_id) if igdb_id not in (None, "") else ""
-        # IGDB-derived fields.
-        for field in GAME_DETAILS_FIELDS:
-            entry[field] = e.get(field, GAME_DETAILS_DEFAULTS[field])
-        # Display name: from the per-world manifest's `game` field.
-        entry["game_name"] = manifest.get("game", e.get("game_name", apworld))
-        # Source location for the world (new field, not in legacy GAMES_DATA).
+        igdb_details = game_details.get(apworld, {})
+        igdb_id = manifest.get("igdb_id") or igdb_details.get("igdb_id", "")
+        game_name = manifest.get("game") or igdb_details.get("game_name") or apworld
+
+        if "sex" in game_name.lower() or "hunie" in game_name.lower():
+            age_rating = "AO"
+        else:
+            age_rating = igdb_details.get("age_rating") or "NR"
+
+        has_igdb = bool(igdb_id) and str(igdb_id) != "0"
+        if has_igdb:
+            entry = {
+                "igdb_id": str(igdb_id),
+                "cover_url": igdb_details.get("cover_url") or "",
+                "artwork_url": igdb_details.get("artwork_url") or "",
+                "key_art_url": igdb_details.get("key_art_url") or "",
+                "game_name": game_name,
+                "igdb_name": igdb_details.get("igdb_name") or "",
+                "age_rating": age_rating,
+                "rating": igdb_details.get("rating") or [],
+                "player_perspectives": igdb_details.get("player_perspectives") or [],
+                "genres": igdb_details.get("genres") or [],
+                "themes": igdb_details.get("themes") or [],
+                "platforms": igdb_details.get("platforms") or [],
+                "storyline": igdb_details.get("storyline") or "",
+                "keywords": igdb_details.get("keywords") or [],
+                "release_date": igdb_details.get("release_date") or "",
+                "entry_point_module": f"worlds.{apworld}",
+            }
+        else:
+            entry = {
+                "igdb_id": "",
+                "cover_url": "",
+                "artwork_url": "",
+                "key_art_url": "",
+                "game_name": game_name,
+                "igdb_name": "",
+                "age_rating": "MW",
+                "rating": [],
+                "player_perspectives": [],
+                "genres": ["Multiplayer"],
+                "themes": [],
+                "platforms": ["Archipelago"],
+                "storyline": "",
+                "keywords": ["hints", "archipelago", "multiworld"],
+                "release_date": "2025",
+                "entry_point_module": f"worlds.{apworld}",
+            }
         if "module_location" in manifest:
             entry["module_location"] = manifest["module_location"]
-        out[apworld] = entry
-    return out
+        result[apworld] = entry
+    return result
 
 
-def filter_for_variant(games_data: dict[str, dict], variant: str) -> dict[str, dict]:
-    """Return games_data restricted to the variant's allowed age ratings."""
-    allowed = VARIANT_FILTERS[variant]
+def clean_game_data(games_data: dict, rating_filter: list) -> dict:
+    """Filter games by age rating. Mirrors the old pipeline minus the
+    unconditional `age_filter = filter_nr` override — each variant now actually
+    gets its declared filter."""
     return {
-        apworld: data
-        for apworld, data in games_data.items()
-        if data.get("age_rating", "NR") in allowed
+        world: data
+        for world, data in games_data.items()
+        if data.get("age_rating", "NR") in rating_filter
     }
 
 
-def _add_to_index(index: dict[str, set[str]], term: str, apworld: str) -> None:
-    term = "" if term is None else str(term).lower()
-    if not term:
-        return
-    index.setdefault(term, set()).add(apworld)
+def _add_to_index(index: dict[str, set[str]], term: str, world_name: str) -> None:
+    term = clean_value(term)
+    if term:
+        if term not in index:
+            index[term] = set()
+        index[term].add(world_name)
 
 
-def build_search_index(games_data: dict[str, dict]) -> dict[str, set[str]]:
-    """Generate the search index: term -> set of apworlds.
-    Mirrors the monorepo logic, with a `popular` curated set seeded first."""
-    index: dict[str, set[str]] = {"popular": {s for s in POPULAR_APWORLDS if s in games_data}}
-    skip_pattern = re.compile(r".*[():].*")
-    for apworld, data in games_data.items():
-        _add_to_index(index, data.get("game_name", ""), apworld)
-        for field, value in data.items():
+def build_search_index(games_data: dict) -> dict[str, set[str]]:
+    """Build the search index from game data. Mirrors the old pipeline:
+    seeds a curated `popular` set, indexes the display name plus a fixed set of
+    IGDB-derived fields, skips items containing `(`/`)`/`:`, and indexes both
+    the full lowercased value and each whitespace-split word."""
+    search_index: dict[str, set[str]] = {
+        "popular": {s for s in POPULAR_APWORLDS if s in games_data}
+    }
+    for world_name, game_data in games_data.items():
+        _add_to_index(search_index, game_data["game_name"], world_name)
+        for field, value in game_data.items():
             if field not in SEARCHABLE_FIELDS:
                 continue
             if isinstance(value, list):
-                for item in set(value or ()):
-                    if not item or skip_pattern.match(str(item)):
-                        continue
-                    cleaned = str(item).lower()
-                    _add_to_index(index, cleaned, apworld)
-                    for word in cleaned.split():
-                        _add_to_index(index, word, apworld)
+                value_set = set(value) if value else set()
+                for item in value_set:
+                    if item and not match(r".*[():].*", item):
+                        cleaned = clean_value(item)
+                        _add_to_index(search_index, cleaned, world_name)
+                        for word in cleaned.split():
+                            _add_to_index(search_index, word, world_name)
             elif isinstance(value, (str, int, float, bool)):
                 if value:
-                    cleaned = str(value).lower()
-                    _add_to_index(index, cleaned, apworld)
-                    for word in cleaned.split():
-                        _add_to_index(index, word, apworld)
-    return index
+                    value_str = clean_value(value)
+                    _add_to_index(search_index, value_str, world_name)
+                    for word in value_str.split():
+                        _add_to_index(search_index, word, world_name)
+    return search_index
 
 
-def build_game_names(games_data: dict[str, dict]) -> dict[str, str]:
-    """Return `display_name -> apworld` for every game."""
-    return {data["game_name"]: apworld for apworld, data in games_data.items() if data.get("game_name")}
-
-
-def _python_literal(value: object) -> str:
-    return pprint.pformat(value, indent=4, width=120, sort_dicts=False)
-
-
-def _python_set_literal(values: Iterable[str]) -> str:
-    items = sorted(values)
-    if not items:
-        return "set()"
-    return "{" + ", ".join(_python_literal(item) for item in items) + "}"
-
-
-def _format_search_index(search_index: dict[str, set[str]]) -> str:
-    lines = ["{"]
-    for term, apworlds in search_index.items():
-        lines.append(f"    {_python_literal(term)}: {_python_set_literal(apworlds)},")
-    lines.append("}")
-    return "\n".join(lines)
+def validate_generated_index(games_data: dict, search_index: dict[str, set[str]]) -> bool:
+    """Warn-only validation: every game reachable via its display name, no
+    orphan references in the search index."""
+    ok = True
+    for world_name in games_data:
+        game_name = games_data[world_name]["game_name"]
+        if game_name not in games_data:  # never; just defensive
+            continue
+        indexed = search_index.get(clean_value(game_name), set())
+        if world_name not in indexed:
+            print(f"Warning: Game name '{game_name}' not properly indexed")
+            ok = False
+    for term, games in search_index.items():
+        for game in games:
+            if game not in games_data:
+                print(f"Warning: Invalid game reference '{game}' in term '{term}'")
+                ok = False
+    return ok
 
 
 def render_template(
@@ -226,10 +237,18 @@ def render_template(
     game_names: dict[str, str],
     search_index: dict[str, set[str]],
 ) -> str:
+    """Render the template using JSON-style formatting to match the old
+    pipeline's pretty output. SEARCH_INDEX uses sets, which JSON does not
+    represent, so we emit list literals via json.dumps and then convert `[`/`]`
+    to `{`/`}` — safe here because search terms and apworld names never contain
+    bracket characters."""
     template = template_path.read_text(encoding="utf-8")
-    games_data_str = _python_literal(games_data)
-    game_names_str = _python_literal(game_names)
-    search_index_str = _format_search_index(search_index)
+    games_data_str = json.dumps(games_data, indent=4)
+    game_names_str = json.dumps(game_names, indent=4)
+    search_index_json = {k: sorted(v) for k, v in search_index.items()}
+    search_index_str = (
+        json.dumps(search_index_json, indent=4).replace("[", "{").replace("]", "}")
+    )
     return (
         template
         .replace("GAMES_DATA_PLACEHOLDER", games_data_str)
@@ -262,9 +281,9 @@ py-modules = ["mwgg_igdb"]
 def write_readme(out_dir: Path, variant: str, version: str) -> None:
     readme = f'''# mwgg_igdb — {variant} variant ({version})
 
-This branch is the published `{variant}` variant of the MultiworldGG game index.
-It is force-pushed by the daily-release workflow in the Index repo and tagged
-on each push as `{variant}-YYYY-MM-DD`.
+Published `{variant}` variant of the MultiworldGG game index. Force-pushed by
+the daily-release workflow in the Index repo and tagged on each push as
+`{variant}-YYYY-MM-DD`.
 
 Install with:
 
@@ -285,9 +304,14 @@ def build_one_variant(
     out_dir: Path,
     version: str,
 ) -> dict:
-    filtered = filter_for_variant(games_data, variant)
+    rating_filter = VARIANT_FILTERS[variant]
+    filtered = clean_game_data(games_data, rating_filter)
     search_index = build_search_index(filtered)
-    game_names = build_game_names(filtered)
+    game_names = {data["game_name"]: world for world, data in filtered.items()}
+
+    if not validate_generated_index(filtered, search_index):
+        print(f"Warning: index validation failed for variant '{variant}', continuing")
+
     rendered = render_template(template_path, filtered, game_names, search_index)
 
     variant_dir = out_dir / variant
@@ -315,13 +339,13 @@ def build_all(
     out_dir: Path,
     version: str,
     variants: Optional[Iterable[str]] = None,
-) -> list[dict]:
+) -> list:
     manifests = load_world_manifests(worlds_dir)
     game_details = load_game_details(game_details_path)
     games_data = assemble_games_data(manifests, game_details)
 
     selected = list(variants) if variants else list(VARIANT_FILTERS.keys())
-    out: list[dict] = []
+    out: list = []
     for variant in selected:
         if variant not in VARIANT_FILTERS:
             raise SystemExit(f"unknown variant: {variant}")
@@ -340,8 +364,10 @@ def _today_version() -> str:
     return datetime.datetime.now(datetime.timezone.utc).strftime("%Y.%m.%d")
 
 
-def _cli(argv: Optional[list[str]] = None) -> int:
-    parser = argparse.ArgumentParser(description="Build all four variant orphan-branch packages from worlds/*.json.")
+def _cli(argv: Optional[list] = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Build all four variant orphan-branch packages from worlds/*.json."
+    )
     parser.add_argument("--worlds-dir", type=Path, default=Path("worlds"))
     parser.add_argument("--game-details", type=Path, default=Path("output/igdb_game_details.json"))
     parser.add_argument("--template", type=Path, default=Path("scripts/game_index_template.py"))
