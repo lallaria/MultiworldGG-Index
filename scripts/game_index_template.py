@@ -38,24 +38,27 @@ class _GameIndexClass(object):
     def game_names(self) -> dict:
         return self._game_names
     @game_names.setter
-    def game_names(self, key: str, value: str):
+    def game_names(self, item: tuple[str, str]) -> None:
+        key, value = item
         self._game_names[key] = value
 
     @property
     def search_index(self) -> dict:
         return self._search_index
     @search_index.setter
-    def search_index(self, key: str, value: set[str]):
+    def search_index(self, item: tuple[str, str]) -> None:
+        key, value = item
         if key in self._search_index:
             self._search_index[key].add(value)
         else:
-            self._search_index[key] = set([value])
+            self._search_index[key] = {value}
 
     @property
     def games(self) -> dict:
         return self._games
     @games.setter
-    def games(self, key: str, value: dict):
+    def games(self, item: tuple[str, dict]) -> None:
+        key, value = item
         self._games[key] = value
 
     def search(self, query: str) -> dict:
