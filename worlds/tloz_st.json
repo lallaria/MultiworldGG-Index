@@ -1,6 +1,6 @@
 {
     "game": "Spirit Tracks",
-    "world_version": "0.7.4",
+    "world_version": "0.7.6",
     "authors": [
         "DayKat",
         "1313e",
@@ -11,5 +11,5 @@
     "minimum_ap_version": "0.6.0",
     "compatible_version": 7,
     "version": 7,
-    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/tloz_st"
+    "module_location": "https://github.com/lallaria/MultiworldGG/releases/download/worlds-seed-2026-05-11/worlds_tloz_st-0.7.6-py3-none-any.whl#sha256=2efbd376d3923d63d15acf73178ca1c1d615d7560bef11b5a6e86890e2e45264"
 }

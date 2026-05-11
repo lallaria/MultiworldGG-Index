@@ -1,6 +1,6 @@
 {
     "game": "Donkey Kong Country 2",
-    "world_version": "3.0.4",
+    "world_version": "3.1.1",
     "minimum_ap_version": "0.6.3",
     "authors": [
         "lx5"
@@ -8,5 +8,5 @@
     "igdb_id": 1092,
     "compatible_version": 7,
     "version": 7,
-    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/dkc2"
+    "module_location": "https://github.com/lallaria/MultiworldGG/releases/download/worlds-seed-2026-05-11/worlds_dkc2-3.1.1-py3-none-any.whl#sha256=75a41afebda1033df96348f5a7410df81425c9edf9a6d7634bcf565483dc555f"
 }

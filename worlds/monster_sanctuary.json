@@ -6,5 +6,5 @@
     "igdb_id": 89594,
     "minimum_ap_version": "0.6.4",
     "world_version": "0.0.1",
-    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/monster_sanctuary"
+    "module_location": "https://github.com/lallaria/MultiworldGG/releases/download/worlds-seed-2026-05-11/worlds_monster_sanctuary-0.0.1-py3-none-any.whl#sha256=7676cbf1ad1cd0149e2da9d2bf3c501bb8d286b9ac66028c847e671d14cc7255"
 }

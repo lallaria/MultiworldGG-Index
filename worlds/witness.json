@@ -2,10 +2,10 @@
     "game": "The Witness",
     "igdb_id": 5601,
     "minimum_ap_version": "0.6.4",
-    "world_version": "8.0.1",
+    "world_version": "8.0.0",
     "authors": [
         "NewSoupVi",
         "blastron"
     ],
-    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/witness"
+    "module_location": "https://github.com/lallaria/MultiworldGG/releases/download/worlds-seed-2026-05-11/worlds_witness-8.0.0-py3-none-any.whl#sha256=30553ce99def9a7697e1fb3cea974638c28cb49c8449c082d8155582c224a768"
 }

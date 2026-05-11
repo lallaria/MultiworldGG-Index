@@ -9,5 +9,5 @@
     "minimum_ap_version": "0.6.5",
     "version": 7,
     "world_version": "1.0.2",
-    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/peggle_nights"
+    "module_location": "https://github.com/lallaria/MultiworldGG/releases/download/worlds-seed-2026-05-11/worlds_peggle_nights-1.0.2-py3-none-any.whl#sha256=5e57779fa31604c08682ba6e775f9db36b7ef5af2a2109ee8eb82f62a80d6592"
 }

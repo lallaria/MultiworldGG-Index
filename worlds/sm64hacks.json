@@ -1,6 +1,6 @@
 {
     "minimum_ap_version": "0.6.3",
-    "world_version": "0.4.4",
+    "world_version": "1.1.7",
     "authors": [
         "DNVIC"
     ],
@@ -8,5 +8,5 @@
     "game": "SM64 Romhack",
     "compatible_version": 7,
     "version": 7,
-    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/sm64hacks"
+    "module_location": "https://github.com/lallaria/MultiworldGG/releases/download/worlds-seed-2026-05-11/worlds_sm64hacks-1.1.7-py3-none-any.whl#sha256=d5f8d4831371e094644fc27eee3ec6a83be02dd0bec1394c67f1ce61ff007564"
 }

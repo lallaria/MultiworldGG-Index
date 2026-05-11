@@ -6,5 +6,5 @@
     "igdb_id": 79824,
     "minimum_ap_version": "0.6.4",
     "world_version": "0.0.1",
-    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/osrs"
+    "module_location": "https://github.com/lallaria/MultiworldGG/releases/download/worlds-seed-2026-05-11/worlds_osrs-0.0.1-py3-none-any.whl#sha256=d9a7d3613e9a3a63d6f650928ed839ea271082809c72d56b1ec38fcd2cd47114"
 }

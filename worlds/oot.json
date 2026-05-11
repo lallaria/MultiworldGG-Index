@@ -3,8 +3,8 @@
     "authors": [
         "espeon65536"
     ],
-    "world_version": "7.0.2",
+    "world_version": "7.0.0",
     "minimum_ap_version": "0.6.4",
     "igdb_id": 1029,
-    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/oot"
+    "module_location": "https://github.com/lallaria/MultiworldGG/releases/download/worlds-seed-2026-05-11/worlds_oot-7.0.0-py3-none-any.whl#sha256=272f826d3e549918498cf8afd28f0edfce8705fbb7f7ac4af683fd2ebaa5cb61"
 }

@@ -6,5 +6,5 @@
     "igdb_id": 26226,
     "minimum_ap_version": "0.6.3",
     "world_version": "1.0.7",
-    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/celeste_open_world"
+    "module_location": "https://github.com/lallaria/MultiworldGG/releases/download/worlds-seed-2026-05-11/worlds_celeste_open_world-1.0.7-py3-none-any.whl#sha256=fd96ebb5fa42ffc87b146661b5b0ae0cced6363fd6c4603768226b4adb0ffeac"
 }

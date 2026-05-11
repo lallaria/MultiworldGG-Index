@@ -1,7 +1,7 @@
 {
     "game": "Slay the Spire",
     "minimum_ap_version": "0.6.1",
-    "world_version": "2.2.1",
+    "world_version": "2.3.5",
     "authors": [
         "Platano Bailando",
         "KonoTyran"
@@ -9,5 +9,5 @@
     "igdb_id": 296831,
     "compatible_version": 7,
     "version": 7,
-    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/spire"
+    "module_location": "https://github.com/lallaria/MultiworldGG/releases/download/worlds-seed-2026-05-11/worlds_spire-2.3.5-py3-none-any.whl#sha256=e684016580f9fa6c7351bebdfea97d9991dd0af213d05fbd5f8ed57a66d11d0a"
 }

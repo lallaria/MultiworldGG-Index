@@ -1,10 +1,10 @@
 {
     "game": "Pokemon Emerald",
-    "world_version": "2.4.1",
+    "world_version": "2.5.0",
     "minimum_ap_version": "0.6.1",
     "authors": [
         "Zunawe"
     ],
-    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/pokemon_emerald",
+    "module_location": "https://github.com/lallaria/MultiworldGG/releases/download/worlds-seed-2026-05-11/worlds_pokemon_emerald-2.5.0-py3-none-any.whl#sha256=c1048ac96da80fb9f650c82391d624362eaa60f7ff39942ef84fdd9e9194bff8",
     "igdb_id": 1517
 }

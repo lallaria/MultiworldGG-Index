@@ -1,6 +1,6 @@
 {
     "game": "Refunct",
-    "world_version": "1.0.0",
+    "world_version": "1.1.1",
     "minimum_ap_version": "0.6.4",
     "authors": [
         "Spineraks"
@@ -8,5 +8,5 @@
     "igdb_id": 13542,
     "compatible_version": 7,
     "version": 7,
-    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/refunct"
+    "module_location": "https://github.com/lallaria/MultiworldGG/releases/download/worlds-seed-2026-05-11/worlds_refunct-1.1.1-py3-none-any.whl#sha256=4355fa1023558a172801344dd94eb0f45c9193a80981b4356ceaed51c58e3f70"
 }

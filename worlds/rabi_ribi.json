@@ -5,9 +5,9 @@
         "Phie"
     ],
     "igdb_id": 28545,
-    "world_version": "1.4.2",
+    "world_version": "1.4.7",
     "minimum_ap_version": "0.6.4",
     "compatible_version": 7,
     "version": 7,
-    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/rabi_ribi"
+    "module_location": "https://github.com/lallaria/MultiworldGG/releases/download/worlds-seed-2026-05-11/worlds_rabi_ribi-1.4.7-py3-none-any.whl#sha256=00fb7fbdd318a59d6ebd85464db8de732bf757762d74c1634977daeb7cc6a014"
 }

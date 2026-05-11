@@ -1,6 +1,6 @@
 {
     "minimum_ap_version": "0.6.4",
-    "world_version": "0.9.6",
+    "world_version": "0.9.7",
     "authors": [
         "Thedragon005",
         "IHNN"
@@ -9,5 +9,5 @@
     "version": 7,
     "compatible_version": 7,
     "game": "Ape Escape",
-    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/apeescape"
+    "module_location": "https://github.com/lallaria/MultiworldGG/releases/download/worlds-seed-2026-05-11/worlds_apeescape-0.9.7-py3-none-any.whl#sha256=b452d8ca598ffa4fdb74145499c33de5bffb69916ca271ab0243ce82e69754b0"
 }

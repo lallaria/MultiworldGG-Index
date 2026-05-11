@@ -1,11 +1,11 @@
 {
     "game": "Schedule I",
     "minimum_ap_version": "0.6.6",
-    "world_version": "3.5.4",
+    "world_version": "3.6.2",
     "authors": [
         "MacH8s"
     ],
     "compatible_version": 7,
     "version": 7,
-    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/schedule_i"
+    "module_location": "https://github.com/lallaria/MultiworldGG/releases/download/worlds-seed-2026-05-11/worlds_schedule_i-3.6.2-py3-none-any.whl#sha256=08406f67817ff84eace6587d3a797c72f167f838fe2a3b1a0ddbbfebb5a2863f"
 }

@@ -4,7 +4,7 @@
         "KewlioMZX"
     ],
     "igdb_id": 78479,
-    "world_version": "1.0.1",
+    "world_version": "1.0.0",
     "minimum_ap_version": "0.6.4",
-    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/meritous"
+    "module_location": "https://github.com/lallaria/MultiworldGG/releases/download/worlds-seed-2026-05-11/worlds_meritous-1.0.0-py3-none-any.whl#sha256=ddd780ce6db18923ec5be92807ea057151f0cb1d909eedd7fb87552f22815219"
 }

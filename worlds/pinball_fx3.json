@@ -9,5 +9,5 @@
     "minimum_ap_version": "0.6.7",
     "version": 7,
     "world_version": "1.3.0",
-    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/pinball_fx3"
+    "module_location": "https://github.com/lallaria/MultiworldGG/releases/download/worlds-seed-2026-05-11/worlds_pinball_fx3-1.3.0-py3-none-any.whl#sha256=8a7dfaeecff6dbc1dfaa2d2f482ad1fd92ca6419a48614859213b80e7833dfd7"
 }

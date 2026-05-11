@@ -6,7 +6,7 @@
         "KewlioMZX"
     ],
     "igdb_id": 271950,
-    "world_version": "1.0.1",
+    "world_version": "1.0.0",
     "minimum_ap_version": "0.6.4",
-    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/bumpstik"
+    "module_location": "https://github.com/lallaria/MultiworldGG/releases/download/worlds-seed-2026-05-11/worlds_bumpstik-1.0.0-py3-none-any.whl#sha256=93745c4c9675c2cf662453fe5cfe49715d1b26a79503d6f046a7734a3d228b0b"
 }

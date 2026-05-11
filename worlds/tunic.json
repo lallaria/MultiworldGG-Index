@@ -7,5 +7,5 @@
     "igdb_id": 23733,
     "minimum_ap_version": "0.6.4",
     "world_version": "4.2.7",
-    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/tunic"
+    "module_location": "https://github.com/lallaria/MultiworldGG/releases/download/worlds-seed-2026-05-11/worlds_tunic-4.2.7-py3-none-any.whl#sha256=4d6c78c47ae6c6fb8884146cb60bd3c3f4a8f4bd0df889b51ad3daf238f2f6e6"
 }

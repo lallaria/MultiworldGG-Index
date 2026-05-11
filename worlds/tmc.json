@@ -5,8 +5,8 @@
     ],
     "igdb_id": 1035,
     "minimum_ap_version": "0.6.4",
-    "world_version": "0.0.1",
+    "world_version": "0.3.1",
     "compatible_version": 7,
     "version": 7,
-    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/tmc"
+    "module_location": "https://github.com/lallaria/MultiworldGG/releases/download/worlds-seed-2026-05-11/worlds_tmc-0.3.1-py3-none-any.whl#sha256=2f15ae4086c8f13cae70ea553c895be3f9fce8c58da528fe472b199d6d84c2fa"
 }

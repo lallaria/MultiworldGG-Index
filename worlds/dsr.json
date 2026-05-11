@@ -8,6 +8,6 @@
     "igdb_id": 81085,
     "compatible_version": 7,
     "minimum_ap_version": "0.6.4",
-    "world_version": "0.1.0",
-    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/dsr"
+    "world_version": "0.1.1",
+    "module_location": "https://github.com/lallaria/MultiworldGG/releases/download/worlds-seed-2026-05-11/worlds_dsr-0.1.1-py3-none-any.whl#sha256=4b2cb69a84dadcbb394923e0d87fa06186d9bd692e48632356afc6f27955c60c"
 }

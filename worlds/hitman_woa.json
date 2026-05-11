@@ -1,12 +1,12 @@
 {
     "game": "HITMAN World of Assassination",
     "minimum_ap_version": "0.6.3",
-    "world_version": "0.7.2",
+    "world_version": "0.8.1",
     "authors": [
         "BenDipp"
     ],
     "igdb_id": 233571,
     "compatible_version": 7,
     "version": 7,
-    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/hitman_woa"
+    "module_location": "https://github.com/lallaria/MultiworldGG/releases/download/worlds-seed-2026-05-11/worlds_hitman_woa-0.8.1-py3-none-any.whl#sha256=2fc45eeddf48f559378cb42275b02d2543369dba507080a4b98bd266e3e86fe6"
 }

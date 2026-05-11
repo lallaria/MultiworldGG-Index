@@ -5,6 +5,6 @@
     ],
     "igdb_id": 28952,
     "minimum_ap_version": "0.6.3",
-    "world_version": "1.38.0",
-    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/timespinner"
+    "world_version": "1.38.1",
+    "module_location": "https://github.com/lallaria/MultiworldGG/releases/download/worlds-seed-2026-05-11/worlds_timespinner-1.38.1-py3-none-any.whl#sha256=c4b5813f1a0e00cf54d1531d9d51be7e72b9890ba2071115fdacc4041bf6df6a"
 }

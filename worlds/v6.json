@@ -6,5 +6,5 @@
     "igdb_id": 1990,
     "minimum_ap_version": "0.6.4",
     "world_version": "0.0.1",
-    "module_location": "https://github.com/MultiworldGG/MultiworldGG/tree/worlds-mirror/worlds/v6"
+    "module_location": "https://github.com/lallaria/MultiworldGG/releases/download/worlds-seed-2026-05-11/worlds_v6-0.0.1-py3-none-any.whl#sha256=bb0adc68b403907c2cb3e6a3cf9bc71e9f8265cbd362e2e267fee8d489a2641c"
 }
